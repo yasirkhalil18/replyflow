@@ -1,4 +1,6 @@
 import os
+import urllib.request
+import json
 
 token = os.environ.get("DISCORD_BOT_TOKEN", "")
 client_id = os.environ.get("DISCORD_CLIENT_ID", "")

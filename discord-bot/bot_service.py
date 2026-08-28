@@ -671,10 +671,17 @@ class AutomationBotClient(discord.Client):
 
     async def _sync_commands(self):
         try:
-            guild_obj = discord.Object(id=1330964283198013461)
-            self.tree.copy_global_to(guild=guild_obj)
-            await self.tree.sync(guild=guild_obj)
-            print("[BotShard] Instant Guild Slash Commands & UI views synced with Discord Gateway.")
+            await self.wait_until_ready()
+            for g in self.guilds:
+                try:
+                    guild_obj = discord.Object(id=g.id)
+                    self.tree.copy_global_to(guild=guild_obj)
+                    await self.tree.sync(guild=guild_obj)
+                    print(f"[BotShard] Instant Guild Slash Commands & UI views synced with '{g.name}' ({g.id}).")
+                except Exception as g_err:
+                    print(f"[BotShard] Guild {g.id} sync note:", g_err)
+            await self.tree.sync()
+            print("[BotShard] Global Slash Commands & UI views synced with Discord Gateway.")
         except Exception as e:
             print("Command sync note:", e)
 
