@@ -1,0 +1,2338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ReplyFlow — OBS Live Chat Overlay</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-font-smoothing: antialiased !important;
+            -moz-osx-font-smoothing: grayscale !important;
+            text-rendering: optimizeLegibility !important;
+            image-rendering: -webkit-optimize-contrast !important;
+        }
+
+        body, html {
+            width: 100%; height: 100%;
+            background: transparent !important;
+            overflow: hidden;
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            position: relative;
+            transform: translateZ(0);
+            backface-visibility: hidden;
+        }
+
+        #chat-overlay-container {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            width: 420px;
+            max-width: 95%;
+            max-height: 94vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            transition: all 0.3s ease;
+            overflow: visible !important;
+            z-index: 10;
+            padding: 24px 6px 6px 6px;
+            box-sizing: border-box;
+        }
+
+        /* ═══ PINNED SUPERCHAT TICKER BAR AT TOP ═══ */
+        #superchat-pinned-bar {
+            display: none !important;
+            flex-direction: row;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 10px 8px 10px;
+            z-index: 25;
+            width: 100%;
+            max-height: 170px;
+            overflow-y: auto;
+            scrollbar-width: none;
+            margin-bottom: 8px;
+            margin-top: 8px;
+        }
+        #superchat-pinned-bar::-webkit-scrollbar { display: none; }
+
+        .pinned-superchat-chip {
+            display: inline-flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 800;
+            color: #ffffff;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+            animation: scPopIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            border: 1.5px solid rgba(255,255,255,0.4);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            max-width: 100%;
+        }
+
+        /* When 2 or more superchats are pinned, shrink size so all 2+ fit nicely! */
+        #superchat-pinned-bar.has-multiple .pinned-superchat-chip {
+            padding: 5px 12px;
+            font-size: 11px;
+            border-radius: 16px;
+            gap: 6px;
+        }
+
+        #superchat-pinned-bar.has-multiple .pinned-sc-avatar {
+            width: 20px;
+            height: 20px;
+        }
+
+        @keyframes scPopIn {
+            0% { opacity: 0; transform: translateY(-4px) scale(0.9); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .pinned-sc-left {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .pinned-sc-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1.5px solid #fff;
+            flex-shrink: 0;
+        }
+
+        .pinned-sc-amount {
+            background: rgba(0,0,0,0.35);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 900;
+            flex-shrink: 0;
+        }
+
+        /* ═══ USER LEVEL & VVIP GOLD BADGE SYSTEM ═══ */
+        @keyframes goldShimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        @keyframes vvipPulse {
+            0% { box-shadow: 0 0 15px rgba(255, 215, 0, 0.45), inset 0 0 8px rgba(255, 215, 0, 0.2); border-color: #ffd700; opacity: 1; }
+            50% { box-shadow: 0 0 35px rgba(255, 215, 0, 0.95), 0 0 15px rgba(255, 255, 255, 0.8), inset 0 0 20px rgba(255, 215, 0, 0.6); border-color: #ffffff; opacity: 1; }
+            100% { box-shadow: 0 0 15px rgba(255, 215, 0, 0.45), inset 0 0 8px rgba(255, 215, 0, 0.2); border-color: #ffd700; opacity: 1; }
+        }
+
+        .chat-msg.lvl-active {
+            border-left: 3px solid #a855f7 !important;
+            opacity: 1 !important;
+        }
+        .chat-msg.lvl-topfan {
+            border-left: 3px solid #ec4899 !important;
+            box-shadow: 0 0 16px rgba(236, 72, 153, 0.35) !important;
+            opacity: 1 !important;
+        }
+        .chat-msg.lvl-vvip, .chat-msg.lvl-golden, .chat-msg.tier-golden_vvip {
+            background: rgba(22, 18, 10, 0.94) !important;
+            border: 1.5px solid #f59e0b !important;
+            box-shadow: 0 0 12px rgba(245, 158, 11, 0.25) !important;
+            position: relative;
+            opacity: 1 !important;
+        }
+
+        .chat-username.gold-vvip, .gold-vvip {
+            color: #f59e0b !important;
+            -webkit-text-fill-color: #f59e0b !important;
+            font-weight: 800 !important;
+            text-shadow: 0 0 6px rgba(245, 158, 11, 0.4);
+        }
+
+        .chat-badge {
+            -webkit-text-fill-color: initial !important;
+            text-fill-color: initial !important;
+        }
+
+        .chat-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+
+        .gold-vvip-avatar {
+            border: 1.5px solid #f59e0b !important;
+            box-shadow: 0 0 8px rgba(245, 158, 11, 0.4) !important;
+        }
+
+        .badge-vvip-gold, .badge-tier-golden_vvip {
+            background: rgba(245, 158, 11, 0.2) !important;
+            color: #fbbf24 !important;
+            -webkit-text-fill-color: #fbbf24 !important;
+            font-weight: 800 !important;
+            border: 1px solid rgba(245, 158, 11, 0.5) !important;
+            box-shadow: 0 0 8px rgba(245, 158, 11, 0.2) !important;
+        }
+
+        .badge-topfan {
+            background: rgba(236, 72, 153, 0.25) !important;
+            color: #f472b6 !important;
+            -webkit-text-fill-color: #f472b6 !important;
+            border: 1px solid #ec4899 !important;
+        }
+
+        .badge-active {
+            background: rgba(168, 85, 247, 0.25) !important;
+            color: #c084fc !important;
+            -webkit-text-fill-color: #c084fc !important;
+            border: 1px solid #a855f7 !important;
+        }
+
+        /* ═══ CHAT MESSAGES WRAPPER & FADE-BLUR EXIT ═══ */
+        #chat-messages-wrapper {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            gap: 6px;
+            overflow-y: auto;
+            max-height: 100%;
+            padding: 4px 4px;
+            scrollbar-width: none;
+            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,1) 4%, rgba(0,0,0,1) 96%, transparent 100%);
+            mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,1) 4%, rgba(0,0,0,1) 96%, transparent 100%);
+        }
+        #chat-messages-wrapper::-webkit-scrollbar { display: none; }
+
+        #chat-messages-wrapper.flow-top-to-bottom {
+            flex-direction: column-reverse !important;
+            justify-content: flex-start !important;
+        }
+
+        @keyframes chatSlideIn {
+            0% { opacity: 0; transform: translateY(18px) scale(0.94); filter: blur(4px); }
+            100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0px); }
+        }
+
+        .chat-msg {
+            animation: chatSlideIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            opacity: 0;
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            will-change: transform, opacity, filter;
+            flex-shrink: 0 !important;
+            margin-bottom: 6px !important;
+        }
+
+        /* Hide & Blur effect for exiting / dropping messages */
+        .chat-msg.removing {
+            opacity: 0 !important;
+            filter: blur(12px) scale(0.88) !important;
+            transform: translateY(-15px) scale(0.85) !important;
+            max-height: 0 !important;
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+            border: none !important;
+            overflow: hidden !important;
+            pointer-events: none !important;
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+
+        /* ═══ THEME 1: YOUTUBE CLASSIC ═══ */
+        .theme-youtube .chat-msg {
+            background: rgba(18,18,18, var(--chat-bg-opacity, 0.92)); border-radius: 12px; padding: 5px 10px;
+            display: flex; align-items: flex-start; gap: 8px;
+            backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+        }
+        
+        /* YouTube SuperChat Banner Card */
+        .theme-youtube .chat-msg.superchat {
+            border-radius: 12px !important;
+            padding: 0 !important;
+            flex-direction: column !important;
+            overflow: hidden !important;
+            border: 1px solid rgba(255, 255, 255, 0.35) !important;
+        }
+
+        .sc-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            width: 100%;
+        }
+
+        /* High-Contrast SuperChat Header Text & Badges */
+        .sc-card-header .gold-vvip,
+        .sc-card-header .gold-name {
+            color: inherit !important;
+            -webkit-text-fill-color: inherit !important;
+            font-weight: 800 !important;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.8) !important;
+        }
+
+        .sc-card-header .chat-badge {
+            background: rgba(0, 0, 0, 0.45) !important;
+            color: #ffffff !important;
+            -webkit-text-fill-color: #ffffff !important;
+            border: 1px solid rgba(255, 255, 255, 0.4) !important;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4) !important;
+            font-size: 9px !important;
+            font-weight: 800 !important;
+            padding: 2px 6px !important;
+            border-radius: 4px !important;
+        }
+
+        .sc-card-header .xp-bonus-tag {
+            background: rgba(0, 0, 0, 0.45) !important;
+            color: #ffd700 !important;
+            -webkit-text-fill-color: #ffd700 !important;
+            border: 1px solid rgba(255, 215, 0, 0.6) !important;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4) !important;
+        }
+
+        .sc-card-user {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .sc-card-avatar {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+
+        .sc-card-body {
+            line-height: 1.25;
+            padding: 5px 10px 6px 10px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #ffffff;
+            word-break: break-word;
+        }
+
+        .theme-youtube .chat-avatar { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex-shrink: 0; margin-top: 1px; }
+        .theme-youtube .chat-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+        .theme-youtube .chat-username { font-size: 11px; font-weight: 700; color: #a1a1aa; display: flex; align-items: center; gap: 5px; }
+        .theme-youtube .chat-text { font-size: 13px; font-weight: 500; color: #f1f5f9; line-height: 1.28; word-break: break-word; }
+        .theme-youtube .chat-badge { font-size: 9px; font-weight: 800; padding: 1px 5px; border-radius: 4px; display: inline-block; }
+        .theme-youtube .badge-member { background: rgba(16,185,129,0.2); color: #34d399; border: 1px solid rgba(16,185,129,0.4); }
+        .theme-youtube .badge-mod { background: rgba(59,130,246,0.2); color: #60a5fa; border: 1px solid rgba(59,130,246,0.4); }
+
+        /* ═══ TRANSPARENT / NO BOX CHAT MODE (SCREEN UNCOVERED) ═══ */
+        #chat-overlay-container.no-bg-mode .chat-msg:not(.superchat) {
+            background: transparent !important;
+            background-color: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            padding: 2px 4px !important;
+            margin-bottom: 4px !important;
+        }
+
+        #chat-overlay-container.no-bg-mode .chat-text {
+            color: #ffffff !important;
+            -webkit-text-fill-color: #ffffff !important;
+            font-weight: 700 !important;
+            text-shadow: 
+                0 1px 3px rgba(0,0,0,0.95),
+                0 2px 6px rgba(0,0,0,0.95),
+                0 0 2px #000000,
+                1px 1px 2px #000000,
+                -1px -1px 2px #000000,
+                1px -1px 2px #000000,
+                -1px 1px 2px #000000 !important;
+            letter-spacing: 0.2px;
+            line-height: 1.3;
+        }
+
+        #chat-overlay-container.no-bg-mode .chat-username {
+            font-weight: 800 !important;
+            text-shadow: 
+                0 1px 3px rgba(0,0,0,0.95),
+                0 2px 6px rgba(0,0,0,0.95),
+                0 0 2px #000000,
+                1px 1px 2px #000000 !important;
+        }
+
+        #chat-overlay-container.no-bg-mode .chat-username span:not(.gold-vvip):not(.chat-badge) {
+            color: #38bdf8 !important;
+            -webkit-text-fill-color: #38bdf8 !important;
+        }
+
+        #chat-overlay-container.no-bg-mode .gold-vvip {
+            color: #fbbf24 !important;
+            -webkit-text-fill-color: #fbbf24 !important;
+            text-shadow: 
+                0 0 8px rgba(245, 158, 11, 0.8),
+                0 1px 4px #000000,
+                1px 1px 2px #000000 !important;
+        }
+
+        #chat-overlay-container.no-bg-mode .chat-badge {
+            background: rgba(0, 0, 0, 0.7) !important;
+            color: #ffffff !important;
+            -webkit-text-fill-color: #ffffff !important;
+            border: 1px solid rgba(255, 255, 255, 0.4) !important;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6) !important;
+            text-shadow: none !important;
+        }
+
+        #chat-overlay-container.no-bg-mode .chat-avatar {
+            filter: drop-shadow(0 2px 5px rgba(0,0,0,0.85));
+        }
+
+        #chat-overlay-container.no-bg-mode .chat-msg.superchat {
+            background: rgba(15, 23, 42, 0.85) !important;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.8) !important;
+        }
+
+        /* ═══ LEVELING & RANK TIERS CSS (NO HARSH VERTICAL LINES) ═══ */
+        .chat-msg.tier-bronze { border: 1px solid rgba(205,127,50,0.35) !important; }
+        .chat-msg.tier-silver { border: 1px solid rgba(192,192,192,0.4) !important; box-shadow: 0 0 8px rgba(192,192,192,0.15) !important; }
+        .chat-msg.tier-gold { border: 1px solid rgba(255,215,0,0.45) !important; box-shadow: 0 0 10px rgba(255,215,0,0.2) !important; }
+        .chat-msg.tier-golden_vvip {
+            border: 1.5px solid #f59e0b !important;
+            background: rgba(22, 18, 10, 0.94) !important;
+            box-shadow: 0 0 12px rgba(245, 158, 11, 0.25) !important;
+        }
+
+        .badge-tier-bronze { background: linear-gradient(135deg, #a75d26 0%, #cd7f32 100%); color: #ffffff; border: 1px solid rgba(205,127,50,0.5); }
+        .badge-tier-silver { background: linear-gradient(135deg, #475569 0%, #94a3b8 100%); color: #ffffff; border: 1px solid rgba(192,192,192,0.6); box-shadow: 0 0 8px rgba(192,192,192,0.4); }
+        .badge-tier-gold { background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%); color: #ffffff; border: 1px solid rgba(255,215,0,0.6); box-shadow: 0 0 10px rgba(245,158,11,0.5); }
+        .badge-tier-golden_vvip { background: rgba(245, 158, 11, 0.2) !important; color: #fbbf24 !important; -webkit-text-fill-color: #fbbf24 !important; border: 1px solid rgba(245, 158, 11, 0.5) !important; box-shadow: 0 0 8px rgba(245, 158, 11, 0.2) !important; }
+
+        .xp-bonus-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 10px;
+            font-weight: 900;
+            background: rgba(255, 215, 0, 0.25);
+            color: #ffd700;
+            padding: 2px 6px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 215, 0, 0.6);
+            margin-left: 6px;
+            animation: xpPulse 1.2s infinite ease-in-out;
+        }
+
+        @keyframes xpPulse {
+            0% { transform: scale(1); opacity: 0.9; }
+            50% { transform: scale(1.08); opacity: 1; box-shadow: 0 0 10px rgba(255,215,0,0.8); }
+            100% { transform: scale(1); opacity: 0.9; }
+        }
+
+        /* ═══ THEME 2: NEON CYBERPUNK ═══ */
+        .theme-neon .chat-msg {
+            background: linear-gradient(135deg, rgba(168,85,247,0.12), rgba(236,72,153,0.08));
+            border-radius: 14px; padding: 10px 16px; display: flex; align-items: flex-start; gap: 10px;
+            backdrop-filter: blur(12px); border: 1px solid rgba(168,85,247,0.3);
+            box-shadow: 0 0 12px rgba(168,85,247,0.1);
+        }
+        .theme-neon .chat-msg.superchat {
+            border-radius: 14px !important;
+            padding: 0 !important;
+            flex-direction: column !important;
+            overflow: hidden !important;
+            border: 1px solid rgba(255, 255, 255, 0.4) !important;
+            box-shadow: 0 0 25px rgba(217, 70, 239, 0.6) !important;
+        }
+        .theme-neon .chat-avatar { width: 30px; height: 30px; border-radius: 10px; object-fit: cover; border: 2px solid #a855f7; flex-shrink: 0; }
+        .theme-neon .chat-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+        .theme-neon .chat-username { font-size: 12px; font-weight: 800; color: #c084fc; display: flex; align-items: center; gap: 5px; text-shadow: 0 0 8px rgba(192,132,252,0.5); }
+        .theme-neon .chat-text { font-size: 14px; font-weight: 500; color: #e2e8f0; line-height: 1.35; word-break: break-word; }
+        .theme-neon .chat-badge { font-size: 10px; font-weight: 800; padding: 1px 5px; border-radius: 4px; display: inline-block; }
+        .theme-neon .badge-member { background: rgba(52,211,153,0.2); color: #34d399; border: 1px solid rgba(52,211,153,0.4); }
+        .theme-neon .badge-mod { background: rgba(168,85,247,0.25); color: #c084fc; border: 1px solid rgba(168,85,247,0.5); }
+
+        /* ═══ THEME 3: MINIMAL CLEAN ═══ */
+        .theme-minimal .chat-msg {
+            background: rgba(15,15,20,0.75); border-radius: 8px; padding: 8px 14px;
+            display: flex; align-items: flex-start; gap: 10px;
+            border-left: 3px solid #34d399; backdrop-filter: blur(6px);
+        }
+        .theme-minimal .chat-msg.superchat {
+            background: rgba(251, 191, 36, 0.15) !important;
+            border-left: 4px solid #fbbf24 !important;
+            border-radius: 10px !important;
+            padding: 10px 14px !important;
+            flex-direction: row !important;
+        }
+        .theme-minimal .chat-avatar { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; flex-shrink: 0; opacity: 0.9; }
+        .theme-minimal .chat-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+        .theme-minimal .chat-username { font-size: 11px; font-weight: 700; color: #34d399; display: flex; align-items: center; gap: 5px; }
+        .theme-minimal .chat-msg.superchat .chat-username { color: #fbbf24; font-size: 12px; }
+        .theme-minimal .chat-text { font-size: 13px; font-weight: 400; color: #d1d5db; line-height: 1.3; word-break: break-word; }
+        .theme-minimal .chat-badge { font-size: 9px; font-weight: 700; padding: 1px 4px; border-radius: 3px; display: inline-block; }
+        .theme-minimal .badge-member { background: rgba(52,211,153,0.15); color: #6ee7b7; }
+        .theme-minimal .badge-mod { background: rgba(96,165,250,0.15); color: #93c5fd; }
+
+        .hide-avatars .chat-avatar { display: none !important; }
+        .hide-badges .chat-badge { display: none !important; }
+
+        /* ═══ DROPFLER-STYLE ANIMATED SUPERCHAT POPUP BANNER ═══ */
+        #superchat-popup-banner-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 440px;
+            max-width: 92vw;
+            z-index: 99999;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sc-banner-card {
+            width: 100%;
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.96) 0%, rgba(30, 41, 59, 0.96) 100%);
+            border-radius: 16px;
+            padding: 14px 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.85), 0 0 25px rgba(255, 215, 0, 0.4);
+            border: 2px solid #ffd700;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            position: relative;
+            overflow: hidden;
+            animation: scBannerPopIn 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        .sc-banner-card.sc-banner-exit {
+            animation: scBannerPopOut 0.45s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        @keyframes scBannerPopIn {
+            0% { opacity: 0; transform: translateY(-40px) scale(0.85); filter: blur(8px); }
+            100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+        }
+
+        @keyframes scBannerPopOut {
+            0% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+            100% { opacity: 0; transform: translateY(-30px) scale(0.9); filter: blur(10px); }
+        }
+
+        .sc-banner-shimmer {
+            position: absolute;
+            top: 0; left: -100%;
+            width: 60%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+            transform: skewX(-25deg);
+            animation: scShimmerRay 2.5s infinite linear;
+        }
+
+        @keyframes scShimmerRay {
+            0% { left: -100%; }
+            100% { left: 200%; }
+        }
+
+        .sc-banner-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .sc-banner-user {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sc-banner-avatar {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #ffffff;
+            box-shadow: 0 0 12px rgba(255, 255, 255, 0.5);
+            flex-shrink: 0;
+        }
+
+        .sc-banner-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .sc-banner-username {
+            font-size: 14px;
+            font-weight: 800;
+            color: #ffffff;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .sc-banner-tag {
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .sc-banner-amount-pill {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 900;
+            color: #ffffff;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+            border: 1.5px solid rgba(255, 255, 255, 0.4);
+            letter-spacing: 0.5px;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+            flex-shrink: 0;
+        }
+
+        .sc-banner-message {
+            font-size: 14px;
+            font-weight: 700;
+            color: #ffffff;
+            line-height: 1.35;
+            background: rgba(0, 0, 0, 0.45);
+            padding: 10px 14px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            word-break: break-word;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+        }
+
+        .sc-banner-progress {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 4px;
+            width: 100%;
+            animation: scBannerTimer 10s linear forwards;
+        }
+
+        @keyframes scBannerTimer {
+            0% { width: 100%; }
+            100% { width: 0%; }
+        }
+        /* ── LIVE SUBSCRIBER COUNTER BAR (INDEPENDENT POSITION WIDGET) ── */
+        #live-counter-bar {
+            position: absolute;
+            top: 8%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(15, 23, 42, 0.92);
+            backdrop-filter: blur(16px);
+            border: 1.5px solid rgba(239, 68, 68, 0.6);
+            border-radius: 14px;
+            padding: 7px 18px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.75), 0 0 20px rgba(239, 68, 68, 0.35);
+            transition: top 0.2s ease, left 0.2s ease, transform 0.2s ease;
+            z-index: 40;
+            min-width: 130px;
+            text-align: center;
+        }
+
+        .counter-label {
+            font-size: 11px;
+            font-weight: 900;
+            color: #ef4444;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            text-align: center;
+            line-height: 1.2;
+        }
+
+        .counter-num-box {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            line-height: 1;
+        }
+
+        .counter-val {
+            font-size: 22px;
+            font-weight: 900;
+            color: #ffffff;
+            letter-spacing: 0.5px;
+            text-align: center;
+            width: 100%;
+            text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
+        }
+
+        .counter-pop-badge {
+            position: absolute;
+            right: -10px;
+            top: -6px;
+            font-size: 11px;
+            font-weight: 900;
+            padding: 2px 8px;
+            border-radius: 20px;
+            opacity: 0;
+            pointer-events: none;
+            box-shadow: 0 4px 15px rgba(52, 211, 153, 0.4);
+            z-index: 45;
+            letter-spacing: 0.5px;
+        }
+
+        .counter-pop-badge.plus {
+            background: linear-gradient(135deg, rgba(52, 211, 153, 0.95), rgba(16, 185, 129, 0.95));
+            border: 1px solid #6ee7b7;
+            color: #042f2e;
+        }
+
+        .counter-pop-badge.active {
+            animation: subFloatUp 2.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        @keyframes subFloatUp {
+            0% { opacity: 0; transform: translateY(10px) scale(0.6); }
+            20% { opacity: 1; transform: translateY(-8px) scale(1.15); }
+            75% { opacity: 1; transform: translateY(-24px) scale(1.0); }
+            100% { opacity: 0; transform: translateY(-38px) scale(0.85); }
+        }
+
+        /* ── ALERT CONTAINER (INDEPENDENT POSITION WIDGET) ── */
+        #alert-container {
+            position: absolute;
+            top: 45%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: auto;
+            max-width: 90%;
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: top 0.2s ease, left 0.2s ease, transform 0.2s ease;
+            z-index: 40;
+        }
+        /* ── HIGH-ENERGY SUBSCRIBER ALERT ANIMATION SUITE ── */
+        @keyframes subAlertBounceIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.2) translateY(-120px) rotate(-10deg);
+                filter: blur(12px);
+            }
+            55% {
+                opacity: 1;
+                transform: scale(1.15) translateY(12px) rotate(3deg);
+                filter: blur(0px);
+            }
+            75% {
+                transform: scale(0.95) translateY(-5px) rotate(-1deg);
+            }
+            90% {
+                transform: scale(1.03) translateY(2px) rotate(0.5deg);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1) translateY(0) rotate(0deg);
+                filter: blur(0px);
+            }
+        }
+
+        @keyframes subAlertExitSmooth {
+            0% {
+                opacity: 1;
+                transform: scale(1) translateY(0) rotate(0deg);
+                filter: blur(0px);
+            }
+            30% {
+                transform: scale(1.08) translateY(-10px) rotate(-2deg);
+                opacity: 0.9;
+            }
+            100% {
+                opacity: 0;
+                transform: scale(0.3) translateY(100px) rotate(12deg);
+                filter: blur(16px);
+            }
+        }
+
+        @keyframes avatarRingGlow {
+            0% { box-shadow: 0 0 10px #ef4444, 0 0 20px #ef4444; border-color: #ef4444; }
+            50% { box-shadow: 0 0 25px #f59e0b, 0 0 45px #f59e0b; border-color: #f59e0b; }
+            100% { box-shadow: 0 0 10px #ef4444, 0 0 20px #ef4444; border-color: #ef4444; }
+        }
+
+        @keyframes borderRainbowPulse {
+            0% { border-color: #ef4444; box-shadow: 0 12px 45px rgba(239,68,68,0.7), inset 0 0 20px rgba(239,68,68,0.3); }
+            50% { border-color: #f59e0b; box-shadow: 0 14px 55px rgba(245,158,11,0.8), inset 0 0 25px rgba(245,158,11,0.4); }
+            100% { border-color: #ef4444; box-shadow: 0 12px 45px rgba(239,68,68,0.7), inset 0 0 20px rgba(239,68,68,0.3); }
+        }
+
+        @keyframes floatSparkle {
+            0% { transform: translateY(0) scale(1); }
+            100% { transform: translateY(-6px) scale(1.2); }
+        }
+
+        .alert-card.theme-dropfler {
+            position: relative;
+            background: linear-gradient(135deg, rgba(18, 12, 28, 0.96) 0%, rgba(28, 14, 20, 0.98) 50%, rgba(15, 10, 22, 0.96) 100%);
+            border: 2.5px solid #ef4444;
+            border-radius: 22px;
+            padding: 16px 26px;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            box-shadow: 0 12px 45px rgba(239, 68, 68, 0.65), inset 0 0 25px rgba(245, 158, 11, 0.25);
+            backdrop-filter: blur(20px);
+            overflow: hidden;
+            user-select: none;
+            animation: borderRainbowPulse 2s infinite ease-in-out;
+        }
+
+        .alert-card.theme-dropfler.animate-in {
+            animation: subAlertBounceIn 0.65s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards, borderRainbowPulse 2s infinite ease-in-out 0.65s;
+        }
+
+        .alert-card.theme-dropfler.animate-out {
+            animation: subAlertExitSmooth 0.5s cubic-bezier(0.6, -0.28, 0.735, 0.045) forwards !important;
+        }
+
+        .avatar-box {
+            position: relative;
+            width: 68px;
+            height: 68px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .avatar-img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #ef4444;
+            animation: avatarRingGlow 2s infinite ease-in-out;
+        }
+
+        .alert-content {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            min-width: 0;
+        }
+
+        .alert-tag {
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #f59e0b;
+        }
+
+        .subscriber-name {
+            font-size: 24px;
+            font-weight: 900;
+            color: #ffffff;
+            line-height: 1.1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-shadow: 0 2px 10px rgba(239, 68, 68, 0.6);
+        }
+
+        /* ═══ DROPFLYER-STYLE ANIMATED BRANDING BADGE WIDGET ═══ */
+        #branding-badge-container {
+            position: absolute;
+            top: 90%;
+            left: 82%;
+            transform: translate(-50%, -50%);
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            transition: top 0.2s ease, left 0.2s ease;
+        }
+
+        .branding-pill-card {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 8px 24px;
+            border-radius: 40px;
+            background: linear-gradient(135deg, rgba(8, 10, 18, 0.95) 0%, rgba(22, 28, 48, 0.95) 100%);
+            border: 2px solid rgba(168, 85, 247, 0.6);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.8), 0 0 20px rgba(168, 85, 247, 0.35);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            position: relative;
+            overflow: visible;
+            max-width: 520px;
+            height: 44px;
+            perspective: 800px;
+            transform-style: preserve-3d;
+        }
+
+        .branding-pill-card.entrance-bottom {
+            animation: brandEntranceBottom 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        .branding-pill-card.entrance-right {
+            animation: brandEntranceRight 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        .branding-pill-card.exit-down {
+            animation: brandExitDown 0.5s cubic-bezier(0.5, 0, 0.75, 0) forwards;
+        }
+
+        @keyframes brandEntranceBottom {
+            0% { opacity: 0; transform: translateY(80px) scale(0.5) rotate(-6deg); filter: blur(14px); }
+            70% { opacity: 1; transform: translateY(-8px) scale(1.06) rotate(1deg); filter: blur(0px); }
+            100% { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); }
+        }
+
+        @keyframes brandEntranceRight {
+            0% { opacity: 0; transform: translateX(100px) scale(0.5) rotate(6deg); filter: blur(14px); }
+            70% { opacity: 1; transform: translateX(-8px) scale(1.06) rotate(-1deg); filter: blur(0px); }
+            100% { opacity: 1; transform: translateX(0) scale(1) rotate(0deg); }
+        }
+
+        @keyframes brandExitDown {
+            0% { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); filter: blur(0px); }
+            100% { opacity: 0; transform: translateY(80px) scale(0.5) rotate(6deg); filter: blur(14px); }
+        }
+
+        .branding-prefix-tag {
+            background: #ffffff;
+            color: #000000;
+            font-size: 13px;
+            font-weight: 900;
+            letter-spacing: 0.8px;
+            padding: 5px 12px;
+            border-radius: 20px;
+            text-transform: uppercase;
+            box-shadow: 0 2px 8px rgba(255, 255, 255, 0.4);
+            flex-shrink: 0;
+            line-height: 1;
+        }
+
+        .branding-text-slot {
+            font-size: 15px;
+            font-weight: 900;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            line-height: 1;
+            transform-style: preserve-3d;
+            backface-visibility: hidden;
+        }
+
+        .branding-text-slot.anim-roll-3d {
+            animation: brandSlot3DRoll 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        .branding-text-slot.anim-slide-left {
+            animation: brandSlotSlideLeft 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        .branding-text-slot.anim-bounce-pop {
+            animation: brandSlotBouncePop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        @keyframes brandSlot3DRoll {
+            0% { opacity: 0; transform: rotateX(-90deg) translateY(18px); filter: blur(6px); }
+            100% { opacity: 1; transform: rotateX(0deg) translateY(0); filter: blur(0px); }
+        }
+
+        @keyframes brandSlotSlideLeft {
+            0% { opacity: 0; transform: translateX(35px) scale(0.8); filter: blur(4px); }
+            100% { opacity: 1; transform: translateX(0) scale(1); filter: blur(0px); }
+        }
+
+        @keyframes brandSlotBouncePop {
+            0% { opacity: 0; transform: scale(0.4) rotate(-6deg); filter: blur(6px); }
+            60% { opacity: 1; transform: scale(1.15) rotate(2deg); filter: blur(0px); }
+            100% { opacity: 1; transform: scale(1) rotate(0deg); }
+        }
+
+        .branding-avatar-badge {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #ffd700;
+            box-shadow: 0 0 12px rgba(255, 215, 0, 0.6);
+            flex-shrink: 0;
+            margin-left: 2px;
+            transition: all 0.4s ease;
+        }
+
+        .branding-avatar-badge.avatar-pulse {
+            animation: avatarPulseSpin 0.65s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes avatarPulseSpin {
+            0% { transform: scale(1) rotate(0deg); border-color: #ffd700; box-shadow: 0 0 10px #ffd700; }
+            50% { transform: scale(1.3) rotate(180deg); border-color: #ec4899; box-shadow: 0 0 22px #ec4899; }
+            100% { transform: scale(1) rotate(360deg); border-color: #38bdf8; box-shadow: 0 0 10px #38bdf8; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Live Subscriber Counter Bar Widget -->
+    <div id="live-counter-bar">
+        <div class="counter-label">LIVE SUBSCRIBERS</div>
+        <div class="counter-num-box">
+            <div class="counter-val" id="live-sub-val">284,500</div>
+            <div class="counter-pop-badge" id="counter-pop-badge">+1</div>
+        </div>
+    </div>
+
+    <!-- Subscriber Alert Popup Container Widget -->
+    <div id="alert-container"></div>
+
+    <div id="superchat-popup-banner-container"></div>
+
+    <!-- Animated Branding Badge Widget -->
+    <div id="branding-badge-container"></div>
+
+    <div id="chat-overlay-container">
+        <!-- YouTube Pinned SuperChat Bar at top of chat -->
+        <div id="superchat-pinned-bar"></div>
+
+        <!-- Chat Stream Wrapper -->
+        <div id="chat-messages-wrapper"></div>
+    </div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        let channelParam = params.get('channel') || '@ainotespk';
+        const themeParam = params.get('theme') || 'youtube';
+        const fontSizeParam = parseInt(params.get('fontSize') || '14');
+        const maxMsgsParam = parseInt(params.get('maxMessages') || '15');
+        const widthParam = parseInt(params.get('width') || '420');
+        const bgOpacityParam = parseFloat(params.get('bgOpacity') || '0.88');
+        const positionParam = params.get('position') || 'left';
+        const scaleParam = parseFloat(params.get('scale') || '1.0');
+        const aScaleParam = parseFloat(params.get('aScale') || params.get('scale') || '1.0');
+        const counterScaleParam = parseFloat(params.get('counterScale') || params.get('scale') || '1.0');
+        const scScaleParam = parseFloat(params.get('scScale') || params.get('scale') || '1.0');
+        const opacityParam = parseFloat(params.get('opacity') || '1.0');
+        const showAvatarsParam = params.get('showAvatars') !== 'false';
+        const showBadgesParam = params.get('showBadges') !== 'false';
+        const showBgParam = params.get('showBg') !== 'false' && params.get('bgMode') !== 'transparent';
+        const showScBannerParam = params.get('showScBanner') !== 'false';
+        const enableScTtsParam = params.get('enableScTts') === 'true';
+        const showScInChatParam = params.get('showScInChat') !== 'false';
+        const showChatParam = params.get('showChat') !== 'false';
+        const showAlertParam = params.get('showAlert') !== 'false';
+        const showCounterParam = params.get('showCounter') !== 'false';
+        const flowDirectionParam = params.get('flowDirection') || 'bottom-to-top';
+        const enableSoundParam = params.get('enableSound') === 'true';
+
+        const rawCTop = params.get('cTop');
+        const rawCLeft = params.get('cLeft');
+        const cTopParam = (rawCTop !== null && rawCTop !== 'null' && !isNaN(parseFloat(rawCTop))) ? parseFloat(rawCTop) : 75;
+        const cLeftParam = (rawCLeft !== null && rawCLeft !== 'null' && !isNaN(parseFloat(rawCLeft))) ? parseFloat(rawCLeft) : 15;
+
+        const rawScTop = params.get('scTop');
+        const rawScLeft = params.get('scLeft');
+        const scTopParam = (rawScTop !== null && rawScTop !== 'null' && !isNaN(parseFloat(rawScTop))) ? parseFloat(rawScTop) : 20;
+        const scLeftParam = (rawScLeft !== null && rawScLeft !== 'null' && !isNaN(parseFloat(rawScLeft))) ? parseFloat(rawScLeft) : 50;
+
+        const rawATop = params.get('aTop');
+        const rawALeft = params.get('aLeft');
+        const aTopParam = (rawATop !== null && rawATop !== 'null' && !isNaN(parseFloat(rawATop))) ? parseFloat(rawATop) : 45;
+        const aLeftParam = (rawALeft !== null && rawALeft !== 'null' && !isNaN(parseFloat(rawALeft))) ? parseFloat(rawALeft) : 50;
+
+        const rawCounterTop = params.get('counterTop');
+        const rawCounterLeft = params.get('counterLeft');
+        const counterTopParam = (rawCounterTop !== null && rawCounterTop !== 'null' && !isNaN(parseFloat(rawCounterTop))) ? parseFloat(rawCounterTop) : 8;
+        const counterLeftParam = (rawCounterLeft !== null && rawCounterLeft !== 'null' && !isNaN(parseFloat(rawCounterLeft))) ? parseFloat(rawCounterLeft) : 50;
+
+        const brandScaleParam = parseFloat(params.get('brandScale') || params.get('scale') || '1.0');
+        const showBrandingParam = params.get('showBranding') !== 'false';
+
+        const rawBrandTop = params.get('brandTop');
+        const rawBrandLeft = params.get('brandLeft');
+        const brandTopParam = (rawBrandTop !== null && rawBrandTop !== 'null' && !isNaN(parseFloat(rawBrandTop))) ? parseFloat(rawBrandTop) : 90;
+        const brandLeftParam = (rawBrandLeft !== null && rawBrandLeft !== 'null' && !isNaN(parseFloat(rawBrandLeft))) ? parseFloat(rawBrandLeft) : 82;
+
+        const brandDomainParam = params.get('brandDomain') || 'REPLYFLOW.COM';
+        const brandCreatorParam = params.get('brandCreator') || channelParam || '@ainotespk';
+        const brandPrefixParam = params.get('brandPrefix') || 'SEND';
+        const brandTagsParam = params.get('brandTags') || 'SEND AUTOMATION, LIVE AUTO-REPLIES, TYPE !HELP IN CHAT';
+        const brandOpacityParam = parseFloat(params.get('brandOpacity') || '0.95');
+        const brandFontSizeParam = parseInt(params.get('brandFontSize') || '15');
+
+        const container = document.getElementById('chat-overlay-container');
+        const wrapper = document.getElementById('chat-messages-wrapper');
+        const pinnedBar = document.getElementById('superchat-pinned-bar');
+
+        let activeConfig = {
+            theme: themeParam, fontSize: fontSizeParam, maxMessages: maxMsgsParam,
+            width: widthParam, bgOpacity: bgOpacityParam, position: positionParam,
+            scale: scaleParam, aScale: aScaleParam, counterScale: counterScaleParam, scScale: scScaleParam, brandScale: brandScaleParam,
+            opacity: opacityParam, showAvatars: showAvatarsParam, showBadges: showBadgesParam,
+            showBg: showBgParam, showScBanner: showScBannerParam, enableScTts: enableScTtsParam, showScInChat: showScInChatParam,
+            flowDirection: flowDirectionParam, enableSound: enableSoundParam,
+            showChat: showChatParam, showAlert: showAlertParam, showCounter: showCounterParam, showBranding: showBrandingParam,
+            cTop: cTopParam, cLeft: cLeftParam,
+            scTop: scTopParam, scLeft: scLeftParam,
+            aTop: aTopParam, aLeft: aLeftParam,
+            counterTop: counterTopParam, counterLeft: counterLeftParam,
+            brandTop: brandTopParam, brandLeft: brandLeftParam,
+            brandDomain: brandDomainParam, brandCreator: brandCreatorParam,
+            brandPrefix: brandPrefixParam, brandTags: brandTagsParam,
+            brandOpacity: brandOpacityParam, brandFontSize: brandFontSizeParam
+        };
+
+        // ═══ WEB AUDIO SYNTHESIZER FOR GOLDEN CHIME SOUND ═══
+        let audioCtx = null;
+        function playGoldenChimeSound() {
+            return; // Disabled globally to prevent chime sounds
+            try {
+                if (!audioCtx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    if (AudioContext) audioCtx = new AudioContext();
+                }
+                if (!audioCtx) return;
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+
+                const now = audioCtx.currentTime;
+                const osc1 = audioCtx.createOscillator();
+                const osc2 = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc1.type = 'sine';
+                osc2.type = 'triangle';
+                osc1.frequency.setValueAtTime(523.25, now); // C5
+                osc1.frequency.exponentialRampToValueAtTime(1046.50, now + 0.3); // C6
+                osc2.frequency.setValueAtTime(659.25, now); // E5
+                osc2.frequency.exponentialRampToValueAtTime(1318.51, now + 0.3); // E6
+
+                const isPreviewMode = params.get('preview') === 'true';
+                const activeVol = isPreviewMode 
+                    ? (activeConfig.creatorVolume !== undefined ? activeConfig.creatorVolume : 0.8) 
+                    : (activeConfig.viewerVolume !== undefined ? activeConfig.viewerVolume : 1.0);
+                gain.gain.setValueAtTime(0.3 * activeVol, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+
+                osc1.connect(gain);
+                osc2.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc1.start(now);
+                osc2.start(now);
+                osc1.stop(now + 0.85);
+                osc2.stop(now + 0.95);
+            } catch (e) {
+                console.warn('Golden chime sound play failed:', e);
+            }
+        }
+        window.playGoldenChimeSound = playGoldenChimeSound;
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        let currentSubCount = 284500;
+        function animateCounterChange(diff, newTotal) {
+            const liveSubVal = document.getElementById('live-sub-val');
+            const counterPopBadge = document.getElementById('counter-pop-badge');
+            if (!liveSubVal || !counterPopBadge) return;
+            if (newTotal) currentSubCount = newTotal;
+            else currentSubCount += diff;
+
+            liveSubVal.textContent = currentSubCount.toLocaleString();
+
+            if (diff !== 0) {
+                counterPopBadge.textContent = diff > 0 ? `+${diff}` : `${diff}`;
+                counterPopBadge.className = `counter-pop-badge ${diff > 0 ? 'plus' : 'minus'}`;
+                void counterPopBadge.offsetWidth;
+                counterPopBadge.classList.add('active');
+                setTimeout(() => {
+                    counterPopBadge.classList.remove('active');
+                }, 2500);
+            }
+        }
+
+        function triggerSubscriberAlert(data) {
+            data = data || {};
+            const username = data.username || (data.payload ? data.payload.username : null) || 'New Subscriber';
+            const alertContainer = document.getElementById('alert-container');
+            if (!alertContainer) return;
+
+            alertContainer.style.display = 'flex';
+            playGoldenChimeSound();
+            animateCounterChange(1);
+
+            const card = document.createElement('div');
+            card.className = 'alert-card theme-dropfler animate-in';
+            card.innerHTML = `
+                <div style="position: absolute; top: -10px; right: 15px; font-size: 18px; opacity: 0.85; animation: floatSparkle 1.5s infinite alternate;">✨</div>
+                <div style="position: absolute; bottom: -8px; left: 20px; font-size: 16px; opacity: 0.75; animation: floatSparkle 2s infinite alternate;">🎉</div>
+                <div class="avatar-box">
+                    <img class="avatar-img" src="https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(username)}" alt="Avatar">
+                    <div style="position: absolute; bottom: -4px; right: -4px; background: linear-gradient(135deg, #ef4444, #f59e0b); color: #fff; font-size: 11px; font-weight: 900; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.6);">⚡</div>
+                </div>
+                <div class="alert-content">
+                    <div class="alert-tag">⚡ NEW SUBSCRIBER JOINED!</div>
+                    <div class="subscriber-name">${escapeHtml(username)}</div>
+                    <div style="font-size: 10px; font-weight: 700; color: #34d399; display: flex; align-items: center; gap: 4px; margin-top: 1px;">
+                        <span>🟢 Subscribed to Channel</span>
+                    </div>
+                </div>
+            `;
+            alertContainer.innerHTML = '';
+            alertContainer.appendChild(card);
+
+            // ⏱️ STAYS ON SCREEN FOR EXACTLY 4 SECONDS (4000ms), THEN ANIMATES OUT!
+            setTimeout(function() {
+                card.classList.remove('animate-in');
+                card.classList.add('animate-out');
+                setTimeout(function() {
+                    if (card.parentNode) {
+                        card.parentNode.removeChild(card);
+                    }
+                }, 500);
+            }, 4000);
+        }
+        window.triggerSubscriberAlert = triggerSubscriberAlert;
+
+        function applyConfig(cfg) {
+            if (!cfg) return;
+            activeConfig = Object.assign({}, activeConfig, cfg);
+            if (cfg.channel) {
+                channelParam = cfg.channel;
+            }
+
+            if (activeConfig.liveMode === 'live') {
+                if (!isRealLiveActive) {
+                    isRealLiveActive = true;
+                    stopDemoModeAndClear();
+                }
+            } else if (activeConfig.liveMode === 'demo') {
+                if (isRealLiveActive) {
+                    isRealLiveActive = false;
+                    startDemoMode();
+                }
+            }
+
+            var fontPx = parseInt(activeConfig.fontSize || 14);
+            var bgOpa = (activeConfig.bgOpacity !== undefined && activeConfig.bgOpacity !== null) ? parseFloat(activeConfig.bgOpacity) : 0.88;
+            var effAScale = (activeConfig.aScale !== undefined && activeConfig.aScale !== null) ? parseFloat(activeConfig.aScale) : (activeConfig.scale || 1.0);
+            var effCounterScale = (activeConfig.counterScale !== undefined && activeConfig.counterScale !== null) ? parseFloat(activeConfig.counterScale) : (activeConfig.scale || 1.0);
+            var effScScale = (activeConfig.scScale !== undefined && activeConfig.scScale !== null) ? parseFloat(activeConfig.scScale) : (activeConfig.scale || 1.0);
+
+            document.documentElement.style.setProperty('--chat-font-size', fontPx + 'px');
+            document.documentElement.style.setProperty('--chat-bg-opacity', bgOpa);
+
+            if (activeConfig.realSubscriberCount !== undefined && activeConfig.realSubscriberCount !== null) {
+                var rSub = parseInt(activeConfig.realSubscriberCount, 10);
+                if (!isNaN(rSub) && rSub > 0) {
+                    animateCounterChange(0, rSub);
+                }
+            }
+
+            if (activeConfig.showChat === false || activeConfig.showChat === 'false') {
+                container.style.display = 'none';
+            } else {
+                container.style.display = 'flex';
+            }
+
+            var counterBar = document.getElementById('live-counter-bar');
+            if (counterBar) {
+                var shouldShow = (activeConfig.showCounter !== false && activeConfig.showCounter !== 'false') &&
+                                 (activeConfig.liveMode === 'live' || (activeConfig.liveMode !== 'demo' && isRealLiveActive));
+                if (!shouldShow) {
+                    counterBar.style.display = 'none';
+                } else {
+                    counterBar.style.display = 'flex';
+                    var cntTop = (activeConfig.counterTop !== null && activeConfig.counterTop !== undefined && !isNaN(parseFloat(activeConfig.counterTop))) ? parseFloat(activeConfig.counterTop) : 8;
+                    var cntLeft = (activeConfig.counterLeft !== null && activeConfig.counterLeft !== undefined && !isNaN(parseFloat(activeConfig.counterLeft))) ? parseFloat(activeConfig.counterLeft) : 50;
+                    counterBar.style.top = cntTop + '%';
+                    counterBar.style.left = cntLeft + '%';
+                    counterBar.style.transform = 'translate(-50%, -50%) scale(' + effCounterScale + ')';
+                }
+            }
+
+            var alertContainer = document.getElementById('alert-container');
+            if (alertContainer) {
+                if (activeConfig.showAlert === false || activeConfig.showAlert === 'false') {
+                    alertContainer.style.display = 'none';
+                } else {
+                    alertContainer.style.display = 'flex';
+                    var alTop = (activeConfig.aTop !== null && activeConfig.aTop !== undefined && !isNaN(parseFloat(activeConfig.aTop))) ? parseFloat(activeConfig.aTop) : 45;
+                    var alLeft = (activeConfig.aLeft !== null && activeConfig.aLeft !== undefined && !isNaN(parseFloat(activeConfig.aLeft))) ? parseFloat(activeConfig.aLeft) : 50;
+                    alertContainer.style.top = alTop + '%';
+                    alertContainer.style.left = alLeft + '%';
+                    alertContainer.style.transform = 'translate(-50%, -50%) scale(' + effAScale + ')';
+                }
+            }
+            container.style.width = Math.min(activeConfig.width || 420, window.innerWidth - 20) + 'px';
+            container.style.maxHeight = '92vh';
+
+            if (activeConfig.flowDirection === 'top-to-bottom') {
+                wrapper.classList.add('flow-top-to-bottom');
+            } else {
+                wrapper.classList.remove('flow-top-to-bottom');
+            }
+
+            if (activeConfig.cTop !== null && activeConfig.cLeft !== null && !isNaN(activeConfig.cTop) && !isNaN(activeConfig.cLeft)) {
+                var cX = parseFloat(activeConfig.cLeft);
+                var translateX = '-50%';
+                var originX = 'center';
+                if (cX < 30) {
+                    translateX = '0%';
+                    originX = 'left';
+                } else if (cX > 70) {
+                    translateX = '-100%';
+                    originX = 'right';
+                }
+                container.style.top = activeConfig.cTop + '%';
+                container.style.left = activeConfig.cLeft + '%';
+                container.style.right = 'auto';
+                container.style.bottom = 'auto';
+                container.style.transform = 'translate(' + translateX + ', -50%) scale(' + (activeConfig.scale || 1.0) + ')';
+                container.style.transformOrigin = originX + ' center';
+            } else {
+                container.style.top = 'auto';
+                container.style.bottom = '10px';
+                if (activeConfig.position === 'right') {
+                    container.style.right = '10px'; container.style.left = 'auto';
+                    container.style.transform = 'scale(' + activeConfig.scale + ')';
+                    container.style.transformOrigin = 'right bottom';
+                } else if (activeConfig.position === 'center') {
+                    container.style.left = '50%'; container.style.right = 'auto';
+                    container.style.transform = 'translateX(-50%) scale(' + activeConfig.scale + ')';
+                    container.style.transformOrigin = 'center bottom';
+                } else {
+                    container.style.left = '10px'; container.style.right = 'auto';
+                    container.style.transform = 'scale(' + activeConfig.scale + ')';
+                    container.style.transformOrigin = 'left bottom';
+                }
+            }
+
+            var scBannerContainer = document.getElementById('superchat-popup-banner-container');
+            if (scBannerContainer) {
+                if (activeConfig.showScBanner === false || activeConfig.showScBanner === 'false') {
+                    scBannerContainer.style.display = 'none';
+                } else {
+                    scBannerContainer.style.display = 'flex';
+                    if (activeConfig.scTop !== null && activeConfig.scLeft !== null && !isNaN(activeConfig.scTop) && !isNaN(activeConfig.scLeft)) {
+                        var scX = parseFloat(activeConfig.scLeft);
+                        var scTranslateX = '-50%';
+                        if (scX < 30) scTranslateX = '0%';
+                        else if (scX > 70) scTranslateX = '-100%';
+                        scBannerContainer.style.top = activeConfig.scTop + '%';
+                        scBannerContainer.style.left = activeConfig.scLeft + '%';
+                        scBannerContainer.style.transform = 'translate(' + scTranslateX + ', -50%) scale(' + effScScale + ')';
+                    } else {
+                        scBannerContainer.style.top = '20px';
+                        scBannerContainer.style.left = '50%';
+                        scBannerContainer.style.transform = 'translateX(-50%) scale(' + effScScale + ')';
+                    }
+                }
+            }
+
+            var brandingContainer = document.getElementById('branding-badge-container');
+            if (brandingContainer) {
+                if (activeConfig.showBranding === false || activeConfig.showBranding === 'false') {
+                    brandingContainer.style.display = 'none';
+                } else {
+                    brandingContainer.style.display = 'flex';
+                    var bTop = (activeConfig.brandTop !== null && activeConfig.brandTop !== undefined && !isNaN(parseFloat(activeConfig.brandTop))) ? parseFloat(activeConfig.brandTop) : 90;
+                    var bLeft = (activeConfig.brandLeft !== null && activeConfig.brandLeft !== undefined && !isNaN(parseFloat(activeConfig.brandLeft))) ? parseFloat(activeConfig.brandLeft) : 82;
+                    brandingContainer.style.top = bTop + '%';
+                    brandingContainer.style.left = bLeft + '%';
+
+                    if (!brandingContainer.firstElementChild) {
+                        brandingContainer.innerHTML = `
+                            <div class="branding-pill-card">
+                                <div class="branding-text-slot" style="background: linear-gradient(135deg, #ec4899, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${escapeHtml((activeConfig.brandDomain || 'REPLYFLOW.COM').toUpperCase())}</div>
+                            </div>
+                        `;
+                    }
+                    var pillEl = brandingContainer.querySelector('.branding-pill-card');
+                    var slotEl = brandingContainer.querySelector('.branding-text-slot');
+                    if (pillEl) {
+                        var opVal = (activeConfig.brandOpacity !== undefined && activeConfig.brandOpacity !== null) ? parseFloat(activeConfig.brandOpacity) : 0.95;
+                        pillEl.style.background = 'linear-gradient(135deg, rgba(8, 10, 18, ' + opVal + ') 0%, rgba(22, 28, 48, ' + opVal + ') 100%)';
+                    }
+                    if (slotEl) {
+                        var fPx = (activeConfig.brandFontSize !== undefined && activeConfig.brandFontSize !== null) ? parseInt(activeConfig.brandFontSize) : 15;
+                        slotEl.style.fontSize = fPx + 'px';
+                    }
+                }
+            }
+
+            container.className = 'theme-' + activeConfig.theme;
+            if (!activeConfig.showAvatars) container.classList.add('hide-avatars');
+            if (!activeConfig.showBadges) container.classList.add('hide-badges');
+
+            if (activeConfig.showBg === false || activeConfig.showBg === 'false' || activeConfig.bgMode === 'transparent') {
+                container.classList.add('no-bg-mode');
+            } else {
+                container.classList.remove('no-bg-mode');
+            }
+
+            // Trimming max messages dynamically
+            var maxMsgs = parseInt(activeConfig.maxMessages || 15);
+            if (wrapper) {
+                while (wrapper.children.length > maxMsgs) {
+                    wrapper.removeChild(wrapper.firstChild);
+                }
+            }
+
+            // Apply font size dynamically to text elements
+            document.querySelectorAll('.chat-text').forEach(function(el) {
+                el.style.fontSize = fontPx + 'px';
+            });
+            document.querySelectorAll('.chat-username').forEach(function(el) {
+                el.style.fontSize = Math.max(10, fontPx - 2) + 'px';
+            });
+
+            autoDetectAndApplyHdScaling();
+        }
+
+        // ═══ AUTO-DETECT CANVAS RESOLUTION & HD SCALING ENGINE ═══
+        function autoDetectAndApplyHdScaling() {
+            const vWidth = window.innerWidth || document.documentElement.clientWidth || 1920;
+            const dpr = window.devicePixelRatio || 1;
+
+            let autoScale = 1.0;
+            if (vWidth > 2200) {
+                autoScale = 1.5; // 4K / 2K Ultra-HD Scaling
+            } else if (vWidth > 1400) {
+                autoScale = 1.0; // Standard 1080p Full HD
+            } else if (vWidth > 900) {
+                autoScale = 0.9; // 720p HD
+            } else {
+                autoScale = Math.max(0.75, vWidth / 1200); // Dynamic responsive scale
+            }
+
+            const finalScale = (activeConfig.scale || 1.0) * autoScale;
+            const effAScale = ((activeConfig.aScale !== undefined && activeConfig.aScale !== null) ? parseFloat(activeConfig.aScale) : (activeConfig.scale || 1.0)) * autoScale;
+            const effCounterScale = ((activeConfig.counterScale !== undefined && activeConfig.counterScale !== null) ? parseFloat(activeConfig.counterScale) : (activeConfig.scale || 1.0)) * autoScale;
+            const effScScale = ((activeConfig.scScale !== undefined && activeConfig.scScale !== null) ? parseFloat(activeConfig.scScale) : (activeConfig.scale || 1.0)) * autoScale;
+            const effBrandScale = ((activeConfig.brandScale !== undefined && activeConfig.brandScale !== null) ? parseFloat(activeConfig.brandScale) : (activeConfig.scale || 1.0)) * autoScale;
+
+            var alertContainer = document.getElementById('alert-container');
+            if (alertContainer && activeConfig.showAlert !== false) {
+                alertContainer.style.transform = 'translate(-50%, -50%) scale(' + effAScale + ')';
+            }
+
+            var counterBar = document.getElementById('live-counter-bar');
+            if (counterBar && activeConfig.showCounter !== false) {
+                counterBar.style.transform = 'translate(-50%, -50%) scale(' + effCounterScale + ')';
+            }
+
+            var scBannerContainer = document.getElementById('superchat-popup-banner-container');
+            if (scBannerContainer && activeConfig.showScBanner !== false) {
+                if (activeConfig.scTop !== null && activeConfig.scLeft !== null && !isNaN(activeConfig.scTop) && !isNaN(activeConfig.scLeft)) {
+                    scBannerContainer.style.transform = 'translate(-50%, -50%) scale(' + effScScale + ')';
+                } else {
+                    scBannerContainer.style.transform = 'translateX(-50%) scale(' + effScScale + ')';
+                }
+            }
+
+            var brandingContainer = document.getElementById('branding-badge-container');
+            if (brandingContainer && activeConfig.showBranding !== false) {
+                brandingContainer.style.transform = 'translate(-50%, -50%) scale(' + effBrandScale + ')';
+            }
+
+            if (activeConfig.cTop !== null && activeConfig.cLeft !== null && !isNaN(activeConfig.cTop) && !isNaN(activeConfig.cLeft)) {
+                container.style.transform = 'translate(-50%, -50%) scale(' + finalScale + ')';
+            } else if (activeConfig.position === 'center') {
+                container.style.transform = 'translateX(-50%) scale(' + finalScale + ')';
+            } else {
+                container.style.transform = 'scale(' + finalScale + ')';
+            }
+        }
+        window.addEventListener('resize', autoDetectAndApplyHdScaling);
+
+        // ═══ DROPFLYER-STYLE BRANDING BADGE ANIMATION ENGINE (15s PAUSE CYCLE) ═══
+        let brandingTextIndex = 0;
+        let brandingTimerHandle = null;
+        let isBrandingRunning = false;
+
+        function getBrandingPhrases() {
+            const domain = (activeConfig.brandDomain || 'REPLYFLOW.COM').trim().toUpperCase();
+            const rawCreator = (activeConfig.brandCreator || channelParam || 'ainotespk').trim();
+            const creator = '@' + rawCreator.replace(/^@+/, '');
+            const rawTags = (activeConfig.brandTags || 'SEND AUTOMATION, LIVE AUTO-REPLIES, TYPE !HELP IN CHAT');
+            const customPhrases = rawTags.split(',');
+
+            const list = [
+                { text: domain, color: 'linear-gradient(135deg, #ec4899, #a855f7)', glow: '#ec4899' },
+                { text: creator, color: 'linear-gradient(135deg, #ffd700, #f59e0b)', glow: '#ffd700' }
+            ];
+
+            customPhrases.forEach(function(p) {
+                var cleaned = p.trim().toUpperCase();
+                if (cleaned) {
+                    list.push({ text: cleaned, color: 'linear-gradient(135deg, #38bdf8, #3b82f6)', glow: '#38bdf8' });
+                }
+            });
+
+            return list;
+        }
+
+        function startBrandingCycleEngine() {
+            if (isBrandingRunning) return;
+            isBrandingRunning = true;
+            runBrandingShowCycle();
+        }
+
+        function runBrandingShowCycle() {
+            var badgeContainer = document.getElementById('branding-badge-container');
+            if (!badgeContainer || activeConfig.showBranding === false || activeConfig.showBranding === 'false') {
+                if (badgeContainer) badgeContainer.style.display = 'none';
+                brandingTimerHandle = setTimeout(runBrandingShowCycle, 3000);
+                return;
+            }
+
+            badgeContainer.style.display = 'flex';
+            var pillEl = badgeContainer.querySelector('.branding-pill-card');
+            var slotEl = badgeContainer.querySelector('.branding-text-slot');
+            var avatarEl = badgeContainer.querySelector('.branding-avatar-badge');
+
+            if (!pillEl || !slotEl) {
+                brandingTimerHandle = setTimeout(runBrandingShowCycle, 2000);
+                return;
+            }
+
+            var phrases = getBrandingPhrases();
+            if (phrases.length === 0) {
+                brandingTimerHandle = setTimeout(runBrandingShowCycle, 3000);
+                return;
+            }
+
+            // 1. Entrance animation from bottom or right mix!
+            pillEl.classList.remove('entrance-bottom', 'entrance-right', 'exit-down');
+            var entranceType = (Math.random() > 0.4) ? 'entrance-bottom' : 'entrance-right';
+            void pillEl.offsetWidth; // reflow
+            pillEl.classList.add(entranceType);
+
+            var phraseStep = 0;
+            var phrasesToPlayCount = Math.min(phrases.length, 3); // Play 3 phrase steps
+
+            function playNextPhraseStep() {
+                if (phraseStep >= phrasesToPlayCount) {
+                    // 2. Play exit animation down and vanish!
+                    pillEl.classList.remove('entrance-bottom', 'entrance-right');
+                    void pillEl.offsetWidth;
+                    pillEl.classList.add('exit-down');
+
+                    setTimeout(function() {
+                        badgeContainer.style.display = 'none';
+                        // 3. Wait 15 SECONDS pause before coming back up!
+                        brandingTimerHandle = setTimeout(runBrandingShowCycle, 15000);
+                    }, 500);
+                    return;
+                }
+
+                brandingTextIndex = (brandingTextIndex + 1) % phrases.length;
+                var current = phrases[brandingTextIndex];
+
+                var animClasses = ['anim-roll-3d', 'anim-slide-left', 'anim-bounce-pop'];
+                var selectedAnim = animClasses[phraseStep % animClasses.length];
+
+                slotEl.classList.remove('anim-roll-3d', 'anim-slide-left', 'anim-bounce-pop');
+                if (avatarEl) avatarEl.classList.remove('avatar-pulse');
+                void slotEl.offsetWidth; // reflow
+
+                slotEl.style.background = current.color;
+                slotEl.style.webkitBackgroundClip = 'text';
+                slotEl.style.webkitTextFillColor = 'transparent';
+                slotEl.style.textShadow = '0 0 14px ' + current.glow + '88';
+                slotEl.textContent = current.text;
+                slotEl.classList.add(selectedAnim);
+
+                if (avatarEl) {
+                    avatarEl.classList.add('avatar-pulse');
+                }
+
+                pillEl.style.borderColor = current.glow;
+                pillEl.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.8), 0 0 20px ' + current.glow + '55';
+
+                phraseStep++;
+                setTimeout(playNextPhraseStep, 2800);
+            }
+
+            playNextPhraseStep();
+        }
+
+        setTimeout(startBrandingCycleEngine, 1000);
+
+        applyConfig(activeConfig);
+
+        window.addEventListener('message', function(e) {
+            if (e.data && e.data.type === 'UPDATE_OBS_CONFIG' && e.data.config) {
+                applyConfig(e.data.config);
+            }
+        });
+
+        let lastCfgTs = 0;
+        async function checkLiveChatCfgSync() {
+            try {
+                const cleanChan = (channelParam || 'ainotespk').replace(/^@+/, '').toLowerCase();
+                const res = await fetch('/api/yt/obs-chat-config?channel=' + encodeURIComponent('@' + cleanChan));
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.config) {
+                        if (data.config.realSubscriberCount !== undefined && data.config.realSubscriberCount !== null) {
+                            animateCounterChange(0, parseInt(data.config.realSubscriberCount, 10));
+                        }
+                        if (data.config.updatedAt && data.config.updatedAt > lastCfgTs) {
+                            lastCfgTs = data.config.updatedAt;
+                            applyConfig(data.config);
+                        } else if (lastCfgTs === 0) {
+                            lastCfgTs = data.config.updatedAt || Date.now();
+                            applyConfig(data.config);
+                        }
+                    }
+                }
+            } catch (e) {}
+        }
+        checkLiveChatCfgSync();
+        setInterval(checkLiveChatCfgSync, 1000);
+
+        // ═══ YOUTUBE SUPERCHAT TIER COLORS ═══
+        function getSuperChatColors(amountStr) {
+            const num = parseFloat(String(amountStr || '').replace(/[^0-9.]/g, '')) || 10;
+            if (num >= 100) return { main: '#d50000', body: '#960000', grad: 'linear-gradient(135deg, #d50000 0%, #b71c1c 100%)', text: '#ffffff' };
+            if (num >= 50)  return { main: '#c2185b', body: '#880e4f', grad: 'linear-gradient(135deg, #e91e63 0%, #c2185b 100%)', text: '#ffffff' };
+            if (num >= 20)  return { main: '#e65100', body: '#bf360c', grad: 'linear-gradient(135deg, #ff6d00 0%, #e65100 100%)', text: '#ffffff' };
+            if (num >= 10)  return { main: '#ff8f00', body: '#e65100', grad: 'linear-gradient(135deg, #ffb300 0%, #ff8f00 100%)', text: '#000000' };
+            if (num >= 5)   return { main: '#00bfa5', body: '#004d40', grad: 'linear-gradient(135deg, #1de9b6 0%, #00bfa5 100%)', text: '#000000' };
+            return { main: '#00b8d4', body: '#006064', grad: 'linear-gradient(135deg, #00e5ff 0%, #00b8d4 100%)', text: '#ffffff' };
+        }
+
+        // ═══ PINNED SUPERCHAT TRACKER ═══
+        function pinSuperChatHeader(data) {
+            if (!data.amount) return;
+            const chipId = 'sc_chip_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+            const chip = document.createElement('div');
+            chip.className = 'pinned-superchat-chip';
+            chip.id = chipId;
+
+            const colors = getSuperChatColors(data.amount);
+            chip.style.background = colors.grad;
+            chip.style.color = colors.text;
+
+            const avatarUrl = 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(data.username);
+
+            chip.innerHTML = `
+                <div class="pinned-sc-left">
+                    <img class="pinned-sc-avatar" src="${avatarUrl}" alt="${escapeHtml(data.username)}">
+                    <span class="pinned-sc-name">@${escapeHtml(data.username)}</span>
+                </div>
+                <span class="pinned-sc-amount" style="${colors.text === '#000000' ? 'background:rgba(0,0,0,0.25);color:#000;' : 'background:rgba(0,0,0,0.35);color:#fff;'}">${escapeHtml(data.amount)}</span>
+            `;
+
+            pinnedBar.appendChild(chip);
+
+            if (pinnedBar.children.length >= 2) {
+                pinnedBar.classList.add('has-multiple');
+            } else {
+                pinnedBar.classList.remove('has-multiple');
+            }
+
+            const numAmt = parseFloat(String(data.amount).replace(/[^0-9.]/g, '')) || 10;
+            const duration = Math.min(Math.max(numAmt * 4000, 30000), 180000);
+            setTimeout(function() {
+                chip.style.transition = 'opacity 0.5s, transform 0.5s';
+                chip.style.opacity = '0';
+                chip.style.transform = 'translateY(-10px)';
+                setTimeout(function() {
+                    chip.remove();
+                    if (pinnedBar.children.length < 2) {
+                        pinnedBar.classList.remove('has-multiple');
+                    }
+                }, 500);
+            }, duration);
+        }
+
+        function escapeHtml(text) {
+            var div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        const userCommentTracker = {};
+
+        function getUserLevelInfo(username, isSuperChat, dataXpInfo) {
+            if (!username) return { level: 1, badgeHtml: '', cardClass: 'tier-bronze', nameClass: '', avatarClass: '', isGolden: false };
+
+            if (dataXpInfo && activeConfig.enableXpSystem !== false) {
+                let tier = dataXpInfo.tier || 'bronze';
+                let tierClass = 'tier-' + tier;
+                let badgeClass = 'badge-tier-' + tier;
+                let icon = dataXpInfo.badgeIcon || '🥉';
+                let tierLabel = dataXpInfo.tierName || 'Bronze';
+                let lvl = dataXpInfo.level || 1;
+
+                let isGolden = tier === 'golden_vvip' || lvl >= 21;
+                let cardClass = isGolden ? 'lvl-vvip lvl-golden tier-golden_vvip' : tierClass;
+                let badgeHtml = `<span class="chat-badge ${badgeClass}">${icon} ${tierLabel} Lvl ${lvl}</span>`;
+                let nameClass = isGolden ? 'gold-vvip' : (tier === 'gold' ? 'gold-name' : '');
+                let avatarClass = isGolden ? 'gold-vvip-avatar' : '';
+
+                return {
+                    level: lvl,
+                    tier: tier,
+                    badgeHtml: badgeHtml,
+                    cardClass: cardClass,
+                    nameClass: nameClass,
+                    avatarClass: avatarClass,
+                    isGolden: isGolden
+                };
+            }
+            
+            if (isSuperChat) {
+                userCommentTracker[username] = (userCommentTracker[username] || 0) + 5;
+            } else {
+                userCommentTracker[username] = (userCommentTracker[username] || 0) + 1;
+            }
+
+            const count = userCommentTracker[username];
+
+            if (isSuperChat || count >= 5) {
+                return {
+                    level: 21,
+                    badgeHtml: '<span class="chat-badge badge-tier-golden_vvip">👑 Golden VVIP</span>',
+                    cardClass: 'lvl-vvip lvl-golden tier-golden_vvip',
+                    nameClass: 'gold-vvip',
+                    avatarClass: 'gold-vvip-avatar',
+                    isGolden: true
+                };
+            }
+            if (count >= 3) {
+                return {
+                    level: 12,
+                    badgeHtml: '<span class="chat-badge badge-tier-gold">🥇 Gold Lvl 12</span>',
+                    cardClass: 'tier-gold',
+                    nameClass: '',
+                    avatarClass: '',
+                    isGolden: false
+                };
+            }
+            if (count >= 2) {
+                return {
+                    level: 6,
+                    badgeHtml: '<span class="chat-badge badge-tier-silver">🥈 Silver Lvl 6</span>',
+                    cardClass: 'tier-silver',
+                    nameClass: '',
+                    avatarClass: '',
+                    isGolden: false
+                };
+            }
+            return {
+                level: 1,
+                badgeHtml: '<span class="chat-badge badge-tier-bronze">🥉 Bronze Lvl 1</span>',
+                cardClass: 'tier-bronze',
+                nameClass: '',
+                avatarClass: '',
+                isGolden: false
+            };
+        }
+
+        // ═══ ULTRA-SMOOTH HD NEURAL TTS VOICE READOUT ═══
+        var cachedTtsVoices = [];
+        var ttsAudioQueue = [];
+        var isTtsPlaying = false;
+
+        function loadTtsVoices() {
+            if ('speechSynthesis' in window) {
+                cachedTtsVoices = window.speechSynthesis.getVoices() || [];
+            }
+        }
+        if ('speechSynthesis' in window) {
+            loadTtsVoices();
+            window.speechSynthesis.onvoiceschanged = loadTtsVoices;
+        }
+
+        function cleanTextForSpeech(str) {
+            if (!str) return '';
+            return str
+                .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
+                .replace(/\$([0-9\.]+)/g, '$1 dollars')
+                .replace(/PKR\s*([0-9\.]+)/gi, '$1 rupees')
+                .replace(/Rs\.?\s*([0-9\.]+)/gi, '$1 rupees')
+                .replace(/@/g, '')
+                .replace(/_/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        function getBestNaturalBrowserVoice() {
+            if (!cachedTtsVoices || cachedTtsVoices.length === 0) loadTtsVoices();
+            if (!cachedTtsVoices || cachedTtsVoices.length === 0) return null;
+
+            // Priority 1: Microsoft Natural / Neural voices (smoothest on Windows)
+            var msNatural = cachedTtsVoices.filter(function(v) {
+                var name = v.name.toLowerCase();
+                return (name.includes('natural') || name.includes('neural')) && v.lang.startsWith('en');
+            });
+            if (msNatural.length > 0) {
+                var jenny = msNatural.find(function(v) { return v.name.toLowerCase().includes('jenny'); });
+                var aria = msNatural.find(function(v) { return v.name.toLowerCase().includes('aria'); });
+                var guy = msNatural.find(function(v) { return v.name.toLowerCase().includes('guy'); });
+                if (jenny) return jenny;
+                if (aria) return aria;
+                if (guy) return guy;
+                return msNatural[0];
+            }
+
+            // Priority 2: Google / Online / Premium voices
+            var googleVoices = cachedTtsVoices.filter(function(v) {
+                var name = v.name.toLowerCase();
+                return (name.includes('google') || name.includes('online') || name.includes('premium')) && v.lang.startsWith('en');
+            });
+            if (googleVoices.length > 0) {
+                var usFemale = googleVoices.find(function(v) { return v.name.toLowerCase().includes('us english female'); });
+                if (usFemale) return usFemale;
+                return googleVoices[0];
+            }
+
+            // Priority 3: Any English female voice
+            var engVoices = cachedTtsVoices.filter(function(v) { return v.lang.startsWith('en'); });
+            if (engVoices.length > 0) {
+                var female = engVoices.find(function(v) { return v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('zira') || v.name.toLowerCase().includes('hazel'); });
+                if (female) return female;
+                return engVoices[0];
+            }
+
+            return cachedTtsVoices[0];
+        }
+
+        function speakSuperChat(username, amount, message) {
+            var cleanUser = cleanTextForSpeech(username) || 'A viewer';
+            var cleanAmt = cleanTextForSpeech(amount) || 'a Super Chat';
+            var cleanMsg = cleanTextForSpeech(message);
+
+            // Build a smooth, broadcaster-style announcement
+            var fullSpeechText = cleanUser + '... sent ' + cleanAmt + '!';
+            if (cleanMsg) {
+                fullSpeechText += ' They say: ' + cleanMsg;
+            }
+            if (!fullSpeechText.trim()) return;
+
+            // Queue TTS to prevent overlapping
+            ttsAudioQueue.push(fullSpeechText);
+            processNextTts();
+        }
+
+        function processNextTts() {
+            if (isTtsPlaying || ttsAudioQueue.length === 0) return;
+            isTtsPlaying = true;
+            var textToSpeak = ttsAudioQueue.shift();
+
+            // Small delay before voice starts for dramatic effect after chime
+            setTimeout(function() {
+                playTtsViaServer(textToSpeak);
+            }, 600);
+        }
+
+        function playTtsViaServer(fullSpeechText) {
+            var ttsUrl = '/api/yt/tts-voice?text=' + encodeURIComponent(fullSpeechText) + '&lang=en&speed=0.9';
+            var audio = new Audio(ttsUrl);
+            audio.volume = 0; // Start silent for fade-in
+            audio.crossOrigin = 'anonymous';
+
+            // Smooth volume fade-in over 400ms
+            function fadeInAudio(targetVol, durationMs) {
+                var startTime = Date.now();
+                var fadeInterval = setInterval(function() {
+                    var elapsed = Date.now() - startTime;
+                    var progress = Math.min(elapsed / durationMs, 1);
+                    // Ease-out curve for natural sounding fade
+                    audio.volume = targetVol * (1 - Math.pow(1 - progress, 3));
+                    if (progress >= 1) clearInterval(fadeInterval);
+                }, 30);
+            }
+
+            audio.addEventListener('canplaythrough', function() {
+                fadeInAudio(1.0, 400);
+            }, { once: true });
+
+            audio.addEventListener('ended', function() {
+                isTtsPlaying = false;
+                setTimeout(processNextTts, 300);
+            });
+
+            audio.addEventListener('error', function(err) {
+                console.log('TTS Audio stream error, falling back to browser voice:', err);
+                fallbackToBrowserTts(fullSpeechText);
+            });
+
+            var playPromise = audio.play();
+            if (playPromise !== undefined) {
+                playPromise.then(function() {
+                    // Playing smoothly via server neural voice
+                }).catch(function(err) {
+                    console.log('TTS play() rejected, falling back to browser voice:', err);
+                    fallbackToBrowserTts(fullSpeechText);
+                });
+            } else {
+                fallbackToBrowserTts(fullSpeechText);
+            }
+        }
+
+        function fallbackToBrowserTts(textToSpeak) {
+            if (!('speechSynthesis' in window)) {
+                isTtsPlaying = false;
+                setTimeout(processNextTts, 200);
+                return;
+            }
+            try {
+                window.speechSynthesis.cancel();
+                var utterance = new SpeechSynthesisUtterance(textToSpeak);
+                var bestVoice = getBestNaturalBrowserVoice();
+                if (bestVoice) {
+                    utterance.voice = bestVoice;
+                }
+                utterance.rate = 0.88;   // Slower, smoother, broadcaster pace
+                utterance.pitch = 1.05;  // Slightly warm inflection
+                const isPreviewMode = params.get('preview') === 'true';
+                const activeVol = isPreviewMode 
+                    ? (activeConfig.creatorVolume !== undefined ? activeConfig.creatorVolume : 0.8) 
+                    : (activeConfig.viewerVolume !== undefined ? activeConfig.viewerVolume : 1.0);
+                utterance.volume = Math.max(0, Math.min(1.0, activeVol));
+                utterance.onend = function() {
+                    isTtsPlaying = false;
+                    setTimeout(processNextTts, 300);
+                };
+                utterance.onerror = function() {
+                    isTtsPlaying = false;
+                    setTimeout(processNextTts, 200);
+                };
+                window.speechSynthesis.speak(utterance);
+            } catch(e) {
+                console.warn('TTS Speech fallback failed:', e);
+                isTtsPlaying = false;
+                setTimeout(processNextTts, 200);
+            }
+        }
+        window.speakSuperChat = speakSuperChat;
+
+        // ═══ TRIGGER DROPFLER-STYLE SUPERCHAT POPUP BANNER (SEQUENTIAL QUEUE) ═══
+        var superChatQueue = [];
+        var isSuperChatDisplaying = false;
+
+        function triggerSuperChatBannerAlert(data) {
+            if (!data) return;
+            if (data.isTest) {
+                var scContainer = document.getElementById('superchat-popup-banner-container');
+                if (scContainer) {
+                    scContainer.style.display = 'flex';
+                    var demoBanners = scContainer.querySelectorAll('.sc-banner-card[data-demo="true"]');
+                    demoBanners.forEach(function(b) { b.remove(); });
+                }
+                isSuperChatDisplaying = false;
+            }
+            superChatQueue.push(data);
+            processSuperChatQueue();
+        }
+
+        function processSuperChatQueue() {
+            if (isSuperChatDisplaying || superChatQueue.length === 0) return;
+
+            isSuperChatDisplaying = true;
+            var data = superChatQueue.shift();
+
+            var popupContainer = document.getElementById('superchat-popup-banner-container');
+            if (!popupContainer) {
+                popupContainer = document.createElement('div');
+                popupContainer.id = 'superchat-popup-banner-container';
+                document.body.appendChild(popupContainer);
+            }
+            popupContainer.innerHTML = ''; // Ensure single card visible at any time
+
+            var colors = getSuperChatColors(data.amount);
+            var avatarUrl = 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(data.username || 'user');
+            var levelInfo = getUserLevelInfo(data.username, true, data.xpInfo);
+
+            var card = document.createElement('div');
+            card.className = 'sc-banner-card';
+            if (data.isDemo) card.setAttribute('data-demo', 'true');
+            card.style.borderColor = colors.main;
+            card.style.boxShadow = '0 10px 30px rgba(0,0,0,0.85), 0 0 25px ' + colors.main + 'aa';
+
+            card.innerHTML = `
+                <div class="sc-banner-shimmer"></div>
+                <div class="sc-banner-header">
+                    <div class="sc-banner-user">
+                        <img class="sc-banner-avatar ${levelInfo.avatarClass}" src="${avatarUrl}" alt="${escapeHtml(data.username)}">
+                        <div class="sc-banner-meta">
+                            <div class="sc-banner-username">@${escapeHtml(data.username)} ${levelInfo.badgeHtml}</div>
+                            <div class="sc-banner-tag" style="color: ${colors.main};">🎉 YOUTUBE SUPERCHAT</div>
+                        </div>
+                    </div>
+                    <div class="sc-banner-amount-pill" style="background: ${colors.grad}; border-color: ${colors.main};">
+                        💰 ${escapeHtml(data.amount || '$10.00')}
+                    </div>
+                </div>
+                ${data.message ? `<div class="sc-banner-message">${escapeHtml(data.message)}</div>` : ''}
+                <div class="sc-banner-progress" style="background: ${colors.main};"></div>
+            `;
+
+            popupContainer.appendChild(card);
+
+            playGoldenChimeSound();
+
+            if (activeConfig.enableScTts) {
+                speakSuperChat(data.username, data.amount, data.message);
+            }
+
+            setTimeout(function() {
+                card.classList.add('sc-banner-exit');
+                setTimeout(function() {
+                    if (card && card.parentNode) card.parentNode.removeChild(card);
+                    isSuperChatDisplaying = false;
+                    // If in Demo Mode and no real superchats queued, auto-trigger next demo superchat banner!
+                    if (!isRealLiveActive && superChatQueue.length === 0) {
+                        const sc = superChatMessages[Math.floor(Math.random() * superChatMessages.length)];
+                        triggerSuperChatBannerAlert({
+                            username: sc.username,
+                            message: sc.message,
+                            type: 'superchat',
+                            amount: sc.amount,
+                            badge: 'member',
+                            isDemo: true
+                        });
+                    } else {
+                        setTimeout(processSuperChatQueue, 350);
+                    }
+                }, 450);
+            }, 10000); // SuperChat Banner stays for 10 seconds!
+        }
+        window.triggerSuperChatBannerAlert = triggerSuperChatBannerAlert;
+
+        // ═══ RENDER CHAT MESSAGE ═══
+        function renderChatMessage(data) {
+            var isSuper = (data.type === 'superchat' || (data.amount && data.amount.length > 0));
+
+            if (isSuper) {
+                if (activeConfig.showScBanner !== false) {
+                    triggerSuperChatBannerAlert(data);
+                }
+                return; // Do NOT render SuperChat cards in the main Live Chat stream!
+            }
+
+            var msg = document.createElement('div');
+            if (data.isDemo) msg.setAttribute('data-demo', 'true');
+            var avatarUrl = 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(data.username || 'user');
+            
+            var levelInfo = getUserLevelInfo(data.username, isSuper, data.xpInfo);
+
+
+
+            var badgeHtml = levelInfo.badgeHtml;
+            if (data.badge === 'member' && levelInfo.level < 21) badgeHtml += ' <span class="chat-badge badge-member">💎 Member</span>';
+            else if (data.badge === 'mod' && levelInfo.level < 21) badgeHtml += ' <span class="chat-badge badge-mod">🛡️ Mod</span>';
+
+            if (isSuper) {
+                msg.className = 'chat-msg superchat ' + levelInfo.cardClass;
+                const colors = getSuperChatColors(data.amount);
+                const numAmt = parseFloat(String(data.amount || '').replace(/[^0-9.]/g, '')) || 10;
+                const bonusXp = Math.max(10, Math.round(numAmt * 10));
+                const xpTagHtml = `<span class="xp-bonus-tag">⚡ +${bonusXp} XP</span>`;
+
+                msg.style.background = colors.body;
+                msg.style.borderRadius = '14px';
+                msg.style.overflow = 'hidden';
+                msg.style.boxShadow = levelInfo.isGolden ? '0 0 25px rgba(255, 215, 0, 0.85)' : ('0 6px 20px ' + colors.main + '77');
+                msg.style.border = levelInfo.isGolden ? '2px solid #ffd700' : '1px solid rgba(255, 255, 255, 0.35)';
+
+                msg.innerHTML = `
+                    <div class="sc-card-header" style="background: ${colors.grad}; color: ${colors.text}; display: flex; align-items: center; justify-content: space-between; padding: 8px 12px;">
+                        <div class="sc-card-user" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <img class="sc-card-avatar ${levelInfo.avatarClass}" src="${avatarUrl}" alt="${escapeHtml(data.username)}" style="width: 28px; height: 28px; border-radius: 50%; border: 2px solid ${colors.text};">
+                            <span class="sc-card-username" style="font-size: 12px; font-weight: 800; color: ${colors.text};"><span class="${levelInfo.nameClass}">@${escapeHtml(data.username)}</span> ${badgeHtml} ${xpTagHtml}</span>
+                        </div>
+                        <span class="sc-card-amount" style="font-size: 13px; font-weight: 900; padding: 3px 10px; border-radius: 12px; ${colors.text === '#000000' ? 'background:rgba(0,0,0,0.25);color:#000;' : 'background:rgba(0,0,0,0.35);color:#fff;'}">💰 ${escapeHtml(data.amount || '$10.00')}</span>
+                    </div>
+                    ${data.message ? `<div class="sc-card-body" style="padding: 8px 12px 10px 12px; font-size:${activeConfig.fontSize}px; font-weight: 600; color: #ffffff; line-height: 1.35; word-break: break-word;">
+                        ${escapeHtml(data.message)}
+                    </div>` : ''}
+                `;
+
+                pinSuperChatHeader(data);
+            } else {
+                msg.className = 'chat-msg ' + levelInfo.cardClass;
+                msg.innerHTML = '<img class="chat-avatar ' + levelInfo.avatarClass + '" src="' + avatarUrl + '" alt="' + escapeHtml(data.username) + '" onerror="this.src=\'https://cdn-icons-png.flaticon.com/512/847/847969.png\'">' +
+                    '<div class="chat-body">' +
+                        '<div class="chat-username"><span class="' + levelInfo.nameClass + '">@' + escapeHtml(data.username) + '</span> ' + badgeHtml + '</div>' +
+                        '<div class="chat-text" style="font-size:' + activeConfig.fontSize + 'px;">' + escapeHtml(data.message) + '</div>' +
+                    '</div>';
+            }
+
+            if (activeConfig.flowDirection === 'top-to-bottom') {
+                wrapper.insertBefore(msg, wrapper.firstChild);
+            } else {
+                wrapper.appendChild(msg);
+            }
+
+            // ═══ SMOOTH HIDE & BLUR EXPIRE FOR OLDEST MESSAGES ═══
+            var maxAllowed = activeConfig.maxMessages || 15;
+            var currentMsgs = wrapper.querySelectorAll('.chat-msg:not(.removing)');
+            if (currentMsgs.length > maxAllowed) {
+                var overCount = currentMsgs.length - maxAllowed;
+                for (var i = 0; i < overCount; i++) {
+                    var oldMsg = currentMsgs[i];
+                    if (oldMsg && !oldMsg.classList.contains('removing')) {
+                        oldMsg.classList.add('removing');
+                        (function(el) {
+                            setTimeout(function() {
+                                if (el && el.parentNode) el.parentNode.removeChild(el);
+                            }, 360);
+                        })(oldMsg);
+                    }
+                }
+            }
+
+            if (activeConfig.flowDirection !== 'top-to-bottom') {
+                wrapper.scrollTop = wrapper.scrollHeight;
+            }
+        }
+        window.renderChatMessage = renderChatMessage;
+        window.queueChatMessage = renderChatMessage;
+
+        // ═══ DEMO PREVIEW GENERATOR (ACTIVE UNTIL REAL STREAM CONNECTS) ═══
+        var demoInterval = null;
+        var isRealLiveActive = false;
+        const sampleUsers = ['gaming_pro', 'code_wizard', 'super_fan_99', 'tech_guru', 'stream_viewer', 'night_owl_pk', 'creative_mind', 'newbie_2026', 'pro_gamer_x', 'ai_developer', 'music_lover', 'daily_viewer', 'pk_legend', 'streamer_bro', 'master_coder'];
+        const sampleMessages = [
+            'This stream is 🔥🔥🔥',
+            'Can you show the OBS settings?',
+            'Love your content bhai! ❤️',
+            'First time here, subbed! 🎉',
+            'Which mic are you using?',
+            "Let's gooo! 🚀",
+            'Keep up the amazing work! 💪',
+            'Hello from Pakistan! 🇵🇰',
+            'GG bro amazing gameplay 🎮',
+            'The AI integration is insane!',
+            'Bhai playlist share karo 🎵',
+            'Been watching since day 1! 💯',
+            'Awesome setup bhai 👏',
+            'ReplyFlow automation is top notch! ⚡',
+            'Super helpful live stream! 🙌'
+        ];
+
+        const superChatMessages = [
+            { username: 'super_fan_99', message: 'Love your content bhai! Keep streaming! ❤️', amount: '$25.00' },
+            { username: 'creative_mind', message: 'Keep up the amazing work! Small support 💪', amount: '$50.00' },
+            { username: 'pk_legend', message: 'Big fan from Lahore! 🇵🇰🔥', amount: '$100.00' },
+            { username: 'daily_viewer', message: 'Been watching since day 1! 💯', amount: '$10.00' },
+            { username: 'streamer_bro', message: 'For the next coffee! ☕', amount: '$5.00' }
+        ];
+
+        function generateRandomChatMessage() {
+            const rand = Math.random();
+            if (rand < 0.10) {
+                const u = sampleUsers[Math.floor(Math.random() * sampleUsers.length)];
+                triggerSubscriberAlert({ username: u, isDemo: true });
+            } else if (rand < 0.25) {
+                const sc = superChatMessages[Math.floor(Math.random() * superChatMessages.length)];
+                renderChatMessage({
+                    username: sc.username,
+                    message: sc.message,
+                    type: 'superchat',
+                    amount: sc.amount,
+                    badge: 'member',
+                    isDemo: true
+                });
+            } else {
+                const u = sampleUsers[Math.floor(Math.random() * sampleUsers.length)];
+                const m = sampleMessages[Math.floor(Math.random() * sampleMessages.length)];
+                const badge = Math.random() < 0.2 ? 'member' : (Math.random() < 0.1 ? 'mod' : '');
+                renderChatMessage({
+                    username: u,
+                    message: m,
+                    type: 'normal',
+                    badge: badge,
+                    isDemo: true
+                });
+            }
+        }
+
+        function startDemoMode() {
+            if (demoInterval || isRealLiveActive) return;
+            if (wrapper && wrapper.children.length === 0) {
+                setTimeout(() => renderChatMessage({ username: 'super_fan_99', message: 'Love your content bhai! Keep streaming! ❤️', type: 'superchat', amount: '$50.00', badge: 'member', isDemo: true }), 100);
+                setTimeout(() => renderChatMessage({ username: 'gaming_pro', message: 'Best live stream automation tool! 🚀', type: 'normal', isDemo: true }), 250);
+                setTimeout(() => renderChatMessage({ username: 'pro_gamer_x', message: 'The AI integration is insane!', type: 'normal', isDemo: true }), 400);
+                setTimeout(() => renderChatMessage({ username: 'stream_viewer', message: 'Awesome setup bhai 👏', type: 'normal', isDemo: true }), 550);
+                setTimeout(() => renderChatMessage({ username: 'creative_mind', message: 'Small support for the amazing work! 💪', type: 'superchat', amount: '$25.00', badge: 'member', isDemo: true }), 700);
+                setTimeout(() => triggerSubscriberAlert({ username: 'Alex Rivera', isDemo: true }), 850);
+            }
+            // Trigger initial demo SuperChat banner immediately so banner is visible during setup!
+            triggerSuperChatBannerAlert({ username: 'super_fan_99', message: 'Love your content bhai! Keep streaming! ❤️', type: 'superchat', amount: '$50.00', isDemo: true });
+            demoInterval = setInterval(generateRandomChatMessage, 2500);
+        }
+
+        function stopDemoModeAndClear() {
+            if (demoInterval) {
+                clearInterval(demoInterval);
+                demoInterval = null;
+            }
+            superChatQueue = superChatQueue.filter(function(item) { return !item.isDemo; });
+            if (wrapper) {
+                var demoCards = wrapper.querySelectorAll('.chat-msg[data-demo="true"]');
+                demoCards.forEach(function(card) { card.remove(); });
+            }
+            var scContainer = document.getElementById('superchat-popup-banner-container');
+            if (scContainer) {
+                var demoBanners = scContainer.querySelectorAll('.sc-banner-card[data-demo="true"]');
+                demoBanners.forEach(function(b) { b.remove(); });
+                scContainer.innerHTML = '';
+            }
+            isSuperChatDisplaying = false;
+        }
+
+        // Start Demo Mode by default so OBS Studio & Preview Monitor show live sample preview for testing
+        startDemoMode();
+
+        // ═══ POLL BACKEND FOR REAL CHAT EVENTS & SUBSCRIBER ALERTS ═══
+        var lastEventId = null;
+        function fetchChatEvents() {
+            if (activeConfig.liveMode === 'demo') {
+                if (isRealLiveActive) {
+                    isRealLiveActive = false;
+                    startDemoMode();
+                }
+                return;
+            }
+
+            if (activeConfig.liveMode === 'live') {
+                if (!isRealLiveActive) {
+                    isRealLiveActive = true;
+                    stopDemoModeAndClear();
+                }
+            }
+
+            const cleanChan = (channelParam || 'ainotespk').replace(/^@+/, '').toLowerCase();
+            fetch('/api/youtube/obs-chat-events?channel=' + encodeURIComponent('@' + cleanChan) + '&since=' + (lastEventId || ''))
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    if (data) {
+                        var hasRealEvents = (data.events && data.events.length > 0);
+                        
+                        if (activeConfig.liveMode === undefined || activeConfig.liveMode === null || activeConfig.liveMode === '') {
+                            if (data.isLive || hasRealEvents) {
+                                if (!isRealLiveActive) {
+                                    isRealLiveActive = true;
+                                    stopDemoModeAndClear();
+                                }
+                            } else if (data.isLive === false && !hasRealEvents && isRealLiveActive) {
+                                isRealLiveActive = false;
+                                startDemoMode();
+                            }
+                        }
+
+                        const waitingEl = document.getElementById('waiting-live-placeholder');
+                        if (isRealLiveActive && !data.isLive) {
+                            if (!waitingEl) {
+                                const placeholder = document.createElement('div');
+                                placeholder.id = 'waiting-live-placeholder';
+                                placeholder.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(15, 23, 42, 0.92); border: 1.5px solid rgba(56, 189, 248, 0.6); border-radius: 12px; padding: 12px 24px; color: #38bdf8; font-family: sans-serif; font-size: 14px; font-weight: 700; box-shadow: 0 4px 20px rgba(0,0,0,0.65); display: flex; align-items: center; gap: 10px; z-index: 100000; transition: opacity 0.3s; pointer-events: none; white-space: nowrap;';
+                                placeholder.innerHTML = `<span style="width: 8px; height: 8px; border-radius: 50%; background: #38bdf8; display: inline-block; animation: pulse 1.5s infinite;"></span> Waiting for live stream to start...`;
+                                document.body.appendChild(placeholder);
+                            }
+                        } else {
+                            if (waitingEl) {
+                                waitingEl.remove();
+                            }
+                        }
+
+                        if (isRealLiveActive && hasRealEvents) {
+                            data.events.forEach(function(evt) {
+                                lastEventId = evt.id;
+                                if (evt.type === 'subscriber' || evt.type === 'alert' || evt.type === 'sub_alert') {
+                                    triggerSubscriberAlert(evt);
+                                } else if (evt.type === 'superchat') {
+                                    triggerSuperChatBannerAlert(evt);
+                                } else {
+                                    renderChatMessage(evt);
+                                }
+                            });
+                        }
+                    }
+                })
+                .catch(function() {});
+        }
+
+        // Start live chat events polling every 1.5 seconds
+        fetchChatEvents();
+        setInterval(fetchChatEvents, 1500);
+
+        window.addEventListener('message', function(e) {
+            if (e.data && e.data.type === 'SET_LIVE_MODE') {
+                activeConfig.liveMode = e.data.live ? 'live' : 'demo';
+                if (e.data.live) {
+                    isRealLiveActive = true;
+                    stopDemoModeAndClear();
+                } else {
+                    isRealLiveActive = false;
+                    startDemoMode();
+                }
+            }
+            if (e.data && e.data.type === 'UPDATE_OBS_CONFIG' && e.data.config) {
+                applyConfig(e.data.config);
+            }
+            if (e.data && e.data.type === 'TEST_OBS_CHAT') {
+                if (e.data.payload) renderChatMessage(e.data.payload);
+            }
+            if (e.data && e.data.type === 'TEST_GOLDEN_OBS_CHAT') {
+                for (let i = 0; i < 5; i++) {
+                    renderChatMessage({ username: 'golden_spammer_vip', message: 'Golden VVIP level unlocked! 🔥👑 #' + (i + 1), type: 'normal' });
+                }
+            }
+            if (e.data && e.data.type === 'TEST_SUPERCHAT_BANNER') {
+                var payload = e.data.payload || { username: 'creative_mind', amount: '$50.00', message: 'Love your content bhai! Keep streaming! ❤️🔥', type: 'superchat', isTest: true };
+                payload.isTest = true;
+                triggerSuperChatBannerAlert(payload);
+            }
+            if (e.data && (e.data.type === 'TEST_OBS_ALERT' || e.data.type === 'TRIGGER_ALERT')) {
+                triggerSubscriberAlert(e.data.payload || { username: 'New Subscriber' });
+            }
+        });
+    </script>
+</body>
+</html>
+</body>
+</html>

@@ -1,0 +1,23 @@
+# Hostinger Configuration for ReplyFlow Node.js Application
+DirectoryIndex index.html
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # 1. Handle Admin Panel URL (Case Insensitive: /admin, /ADMIN -> admin.html)
+  RewriteRule ^[aA][dD][mM][iI][nN]/?$ admin.html [L,NC]
+
+  # 2. Automatically append .html to static pages if extension is missing (e.g. /privacy -> privacy.html)
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{REQUEST_FILENAME}\.html -f
+  RewriteRule ^(.*)$ $1.html [L]
+
+  # 3. Serve existing physical static files directly
+  RewriteCond %{REQUEST_FILENAME} -f
+  RewriteRule ^ - [L]
+
+  # 4. SPA Client fallback strictly for non-API frontend page navigation
+  RewriteCond %{REQUEST_URI} !^/api
+  RewriteRule ^(.*)$ index.html [L]
+</IfModule>

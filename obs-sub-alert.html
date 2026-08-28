@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ReplyFlow — OBS Subscriber Alert Overlay</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-font-smoothing: antialiased !important;
+            -moz-osx-font-smoothing: grayscale !important;
+            text-rendering: optimizeLegibility !important;
+            image-rendering: -webkit-optimize-contrast !important;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            background: transparent !important;
+            overflow: hidden;
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            position: relative;
+            transform: translateZ(0);
+            backface-visibility: hidden;
+        }
+
+        /* ── LIVE SUBSCRIBER COUNTER BAR (INDEPENDENT POSITION WIDGET) ── */
+        #live-counter-bar {
+            position: absolute;
+            top: 6%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(15, 23, 42, 0.92);
+            backdrop-filter: blur(16px);
+            border: 1.5px solid rgba(239, 68, 68, 0.6);
+            border-radius: 14px;
+            padding: 7px 18px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.75), 0 0 20px rgba(239, 68, 68, 0.35);
+            transition: top 0.2s ease, left 0.2s ease, transform 0.2s ease;
+            z-index: 10;
+            min-width: 130px;
+            text-align: center;
+        }
+
+        .counter-label {
+            font-size: 13px;
+            font-weight: 900;
+            color: #ef4444;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-right: -1.5px; /* Offset letter-spacing to guarantee true absolute center */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            text-align: center;
+            line-height: 1.2;
+        }
+
+        .counter-num-box {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            line-height: 1;
+        }
+
+        .counter-val {
+            font-size: 25px;
+            font-weight: 900;
+            color: #ffffff;
+            letter-spacing: 0.5px;
+            text-align: center;
+            width: 100%;
+            text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
+        }
+
+        .counter-pop-badge {
+            position: absolute;
+            right: 8px;
+            top: -2px;
+            font-size: 13px;
+            font-weight: 900;
+            padding: 3px 10px;
+            border-radius: 20px;
+            opacity: 0;
+            pointer-events: none;
+            box-shadow: 0 4px 15px rgba(52, 211, 153, 0.4);
+            z-index: 25;
+            letter-spacing: 0.5px;
+        }
+
+        .counter-pop-badge.plus {
+            background: linear-gradient(135deg, rgba(52, 211, 153, 0.95), rgba(16, 185, 129, 0.95));
+            border: 1px solid #6ee7b7;
+            color: #042f2e;
+            text-shadow: 0 1px 2px rgba(255, 255, 255, 0.4);
+        }
+
+        .counter-pop-badge.minus {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.95), rgba(220, 38, 38, 0.95));
+            border: 1px solid #fca5a5;
+            color: #ffffff;
+        }
+
+        .counter-pop-badge.active {
+            animation: subFloatUp 2.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        @keyframes subFloatUp {
+            0% {
+                opacity: 0;
+                transform: translateY(10px) scale(0.6);
+            }
+            20% {
+                opacity: 1;
+                transform: translateY(-8px) scale(1.15);
+            }
+            75% {
+                opacity: 1;
+                transform: translateY(-24px) scale(1.0);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-38px) scale(0.85);
+            }
+        }
+
+        /* ── ALERT CONTAINER (INDEPENDENT POSITION WIDGET) ── */
+        #alert-container {
+            position: absolute;
+            top: 55%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: auto;
+            max-width: 90%;
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: top 0.2s ease, left 0.2s ease, transform 0.2s ease;
+            z-index: 20;
+        }
+
+        /* ── THEME 1: DROPFLER BOUNCE ── */
+        .alert-card.theme-dropfler {
+            --accent-color: #ef4444;
+            --accent-rgb: 239, 68, 68;
+            background: linear-gradient(135deg, rgba(22, 24, 35, 0.95), rgba(15, 17, 26, 0.98));
+            border: 2px solid var(--accent-color);
+            border-radius: 20px;
+            padding: 18px 24px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            box-shadow: 0 0 35px rgba(var(--accent-rgb), 0.55), inset 0 0 15px rgba(var(--accent-rgb), 0.2);
+            backdrop-filter: blur(15px);
+            opacity: 0;
+            transform: scale(0.6) translateY(-50px);
+            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .alert-card.theme-dropfler.active {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+            animation: pulseGlow 2s infinite alternate;
+        }
+
+        /* ── THEME 2: NEON CYBERPUNK ── */
+        .alert-card.theme-neon {
+            --accent-color: #a855f7;
+            --accent-rgb: 168, 85, 247;
+            background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.92), rgba(15, 17, 26, 0.95));
+            border: 2px solid #ffffff;
+            border-radius: 24px;
+            padding: 18px 28px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            box-shadow: 0 0 45px rgba(var(--accent-rgb), 0.7);
+            opacity: 0;
+            transform: translateY(-80px) rotate(-3deg);
+            transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .alert-card.theme-neon.active {
+            opacity: 1;
+            transform: translateY(0) rotate(0deg);
+            animation: pulseGlow 2s infinite alternate;
+        }
+
+        /* ── THEME 3: SLEEK GLASS ── */
+        .alert-card.theme-sleek {
+            --accent-color: #34d399;
+            --accent-rgb: 52, 211, 153;
+            background: rgba(18, 20, 29, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-left: 5px solid var(--accent-color);
+            border-radius: 14px;
+            padding: 16px 22px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+            opacity: 0;
+            transform: translateX(-100px);
+            transition: all 0.4s ease-out;
+        }
+
+        .alert-card.theme-sleek.active {
+            opacity: 1;
+            transform: translateX(0);
+            animation: pulseGlowSleek 2s infinite alternate;
+        }
+
+        /* Avatar / Custom Media GIF Box */
+        .avatar-box {
+            position: relative;
+            width: 72px;
+            height: 72px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .avatar-img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid var(--accent-color, #ffffff);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+        }
+
+        .custom-gif-media {
+            width: 76px;
+            height: 76px;
+            object-fit: contain;
+            filter: drop-shadow(0 4px 12px rgba(var(--accent-rgb), 0.5));
+        }
+
+        .badge-icon {
+            position: absolute;
+            bottom: -4px;
+            right: -4px;
+            background: var(--accent-color, #ef4444);
+            color: #fff;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            border: 2px solid #111;
+        }
+
+        /* Content Area */
+        .alert-content {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 0;
+        }
+
+        .alert-tag {
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--accent-color, #ef4444);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .theme-neon .alert-tag { color: #fef08a; }
+        .theme-sleek .alert-tag { color: var(--accent-color, #34d399); }
+
+        .subscriber-name {
+            font-size: 24px;
+            font-weight: 900;
+            color: #ffffff;
+            line-height: 1.1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .sub-count-badge {
+            font-size: 13px;
+            font-weight: 700;
+            color: #94a3b8;
+            margin-top: 2px;
+        }
+
+        .theme-neon .sub-count-badge { color: #f1f5f9; }
+
+        @keyframes pulseGlow {
+            0% { box-shadow: 0 0 25px rgba(var(--accent-rgb, 239, 68, 68), 0.45), inset 0 0 12px rgba(var(--accent-rgb, 239, 68, 68), 0.2); }
+            100% { box-shadow: 0 0 45px rgba(var(--accent-rgb, 239, 68, 68), 0.85), 0 0 18px rgba(255, 255, 255, 0.4), inset 0 0 20px rgba(var(--accent-rgb, 239, 68, 68), 0.35); }
+        }
+
+        @keyframes pulseGlowSleek {
+            0% { box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), 0 0 15px rgba(var(--accent-rgb, 52, 211, 153), 0.25); }
+            100% { box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), 0 0 35px rgba(var(--accent-rgb, 52, 211, 153), 0.7); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Live Subscriber Counter Bar Widget (Shows total sub count + dynamic +1/-1 animations) -->
+    <div id="live-counter-bar">
+        <div class="counter-label">SUBSCRIBERS</div>
+        <div class="counter-num-box">
+            <span class="counter-val" id="live-sub-val">284,500</span>
+            <span class="counter-pop-badge plus" id="counter-pop-badge">+1</span>
+        </div>
+    </div>
+
+    <!-- Alert Popup Banner Container -->
+    <div id="alert-container">
+        <!-- Dynamic Alert Card populated via JS -->
+    </div>
+
+    <script>
+        // Web Audio Synthesizer for Built-in Audio Chimes
+        const AudioSynth = {
+            ctx: null,
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioCtx();
+                }
+            },
+            play(type = 'chime') {
+                try {
+                    this.init();
+                    if (this.ctx.state === 'suspended') {
+                        this.ctx.resume();
+                    }
+                    const now = this.ctx.currentTime;
+                    
+                    if (type === 'chime' || type === 'fanfare') {
+                        const freqs = [523.25, 659.25, 783.99, 1046.50];
+                        freqs.forEach((freq, i) => {
+                            const osc = this.ctx.createOscillator();
+                            const gain = this.ctx.createGain();
+                            osc.type = 'sine';
+                            osc.frequency.setValueAtTime(freq, now + (i * 0.08));
+                            gain.gain.setValueAtTime(0.3, now + (i * 0.08));
+                            gain.gain.exponentialRampToValueAtTime(0.001, now + (i * 0.08) + 0.4);
+                            osc.connect(gain);
+                            gain.connect(this.ctx.destination);
+                            osc.start(now + (i * 0.08));
+                            osc.stop(now + (i * 0.08) + 0.45);
+                        });
+                    } else if (type === 'synth') {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(300, now);
+                        osc.frequency.exponentialRampToValueAtTime(1200, now + 0.3);
+                        gain.gain.setValueAtTime(0.2, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now);
+                        osc.stop(now + 0.45);
+                    }
+                } catch(e) {
+                    console.log('Audio synth error:', e);
+                }
+            }
+        };
+
+        // URL Parameters Parsing
+        let urlParams = new URLSearchParams(window.location.search);
+        let channelParam = urlParams.get('channel') || '@ainotespk';
+        let defaultTheme = urlParams.get('theme') || 'dropfler';
+        let defaultSound = urlParams.get('sound') || 'chime';
+        let customGifParam = urlParams.get('gif') || '';
+        let customAudioParam = urlParams.get('audio') || '';
+        let showCounterParam = urlParams.get('showCounter') !== 'false';
+        let showAlertParam = urlParams.get('showAlert') !== 'false';
+        let modeParam = urlParams.get('mode') || 'long';
+
+        let cTopParam = urlParams.get('cTop');
+        let cLeftParam = urlParams.get('cLeft');
+        let cScaleParam = parseFloat(urlParams.get('cScale') || '1');
+        let cOpacityParam = parseFloat(urlParams.get('cOpacity') || '1');
+
+        let aTopParam = urlParams.get('aTop') || urlParams.get('posY');
+        let aLeftParam = urlParams.get('aLeft');
+        let aScaleParam = parseFloat(urlParams.get('aScale') || '1');
+        let aOpacityParam = parseFloat(urlParams.get('aOpacity') || '1');
+        let randPosParam = urlParams.get('randPos') === 'true';
+
+        let liveCounterBar = document.getElementById('live-counter-bar');
+        let liveSubVal = document.getElementById('live-sub-val');
+        let counterPopBadge = document.getElementById('counter-pop-badge');
+        let alertContainer = document.getElementById('alert-container');
+
+        let activeConfig = {
+            cTop: cTopParam !== null ? cTopParam : 10,
+            cLeft: cLeftParam !== null ? cLeftParam : 50,
+            cScale: cScaleParam || 1,
+            cOpacity: cOpacityParam || 1,
+            aTop: aTopParam !== null ? aTopParam : 55,
+            aLeft: aLeftParam !== null ? aLeftParam : 50,
+            aScale: aScaleParam || 1,
+            aOpacity: aOpacityParam || 1,
+            randPos: randPosParam,
+            theme: defaultTheme,
+            sound: defaultSound,
+            customGif: customGifParam,
+            customAudio: customAudioParam,
+            showCounter: showCounterParam,
+            showAlert: showAlertParam
+        };
+
+        function applyActiveConfig(cfg) {
+            if (!cfg) return;
+            activeConfig = Object.assign({}, activeConfig, cfg);
+
+            if (liveCounterBar) {
+                if (cfg.showCounter === false) {
+                    liveCounterBar.style.display = 'none';
+                } else {
+                    liveCounterBar.style.display = 'flex';
+                }
+
+                if (cfg.cTop !== undefined && cfg.cLeft !== undefined) {
+                    liveCounterBar.style.top = `${cfg.cTop}%`;
+                    liveCounterBar.style.left = `${cfg.cLeft}%`;
+                }
+                liveCounterBar.style.transform = `translate(-50%, -50%) scale(${cfg.cScale || 1})`;
+                liveCounterBar.style.opacity = cfg.cOpacity !== undefined ? cfg.cOpacity : 1;
+            }
+
+            if (alertContainer) {
+                if (cfg.showAlert === false) {
+                    alertContainer.style.display = 'none';
+                } else {
+                    alertContainer.style.display = 'block';
+                }
+
+                if (cfg.aTop !== undefined && cfg.aLeft !== undefined) {
+                    alertContainer.style.top = `${cfg.aTop}%`;
+                    alertContainer.style.left = `${cfg.aLeft}%`;
+                }
+                alertContainer.style.transform = `translate(-50%, -50%) scale(${cfg.aScale || 1})`;
+                alertContainer.style.opacity = cfg.aOpacity !== undefined ? cfg.aOpacity : 1;
+            }
+        }
+
+        // Apply initial config
+        applyActiveConfig(activeConfig);
+
+        let lastConfigTimestamp = 0;
+        async function checkLiveOBSConfigSync() {
+            try {
+                const res = await fetch(`/api/yt/obs-config?channel=${encodeURIComponent(channelParam)}&mode=${modeParam}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.config && data.config.updatedAt && data.config.updatedAt > lastConfigTimestamp) {
+                        lastConfigTimestamp = data.config.updatedAt;
+                        applyActiveConfig(data.config);
+                    }
+                }
+            } catch (e) {}
+        }
+        setInterval(checkLiveOBSConfigSync, 2000);
+
+        window.addEventListener('message', (e) => {
+            if (e.data && e.data.type === 'UPDATE_OBS_SUB_CONFIG' && e.data.config) {
+                const updated = Object.assign({}, activeConfig, e.data.config);
+                activeConfig = updated;
+                applyActiveConfig(updated);
+            }
+        });
+
+        if (modeParam === 'short') {
+            document.body.classList.add('mode-short-vertical');
+        }
+
+        let currentSubCount = 284500;
+        const alertQueue = [];
+        let isDisplaying = false;
+
+        // Function to animate live sub counter (+1 / -1)
+        function animateCounterChange(diff, newTotal) {
+            if (newTotal) currentSubCount = newTotal;
+            else currentSubCount += diff;
+
+            liveSubVal.textContent = currentSubCount.toLocaleString();
+
+            if (diff !== 0) {
+                counterPopBadge.textContent = diff > 0 ? `+${diff}` : `${diff}`;
+                counterPopBadge.className = `counter-pop-badge ${diff > 0 ? 'plus' : 'minus'}`;
+                // Force DOM reflow to guarantee +1 animation re-triggers every single test alert!
+                void counterPopBadge.offsetWidth;
+                counterPopBadge.classList.add('active');
+                setTimeout(() => {
+                    counterPopBadge.classList.remove('active');
+                }, 2500);
+            }
+        }
+
+        // Process alert queue sequentially
+        function processQueue() {
+            if (isDisplaying || alertQueue.length === 0) return;
+            isDisplaying = true;
+
+            const alertData = alertQueue.shift();
+            showAlert(alertData);
+        }
+
+        function hexToRgbStr(hex) {
+            if (!hex) return '239, 68, 68';
+            hex = hex.replace('#', '').trim();
+            if (hex.length === 3) {
+                hex = hex.split('').map(c => c + c).join('');
+            }
+            const num = parseInt(hex, 16);
+            if (isNaN(num)) return '239, 68, 68';
+            return `${(num >> 16) & 255}, ${(num >> 8) & 255}, ${num & 255}`;
+        }
+
+        const alertColors = [
+            { hex: '#facc15', rgb: '250, 204, 21' },  // Vibrant Gold Yellow
+            { hex: '#eab308', rgb: '234, 179, 8' },   // Bright Yellow
+            { hex: '#ef4444', rgb: '239, 68, 68' },   // Red
+            { hex: '#10b981', rgb: '16, 185, 129' },  // Emerald Green
+            { hex: '#3b82f6', rgb: '59, 130, 246' },  // Electric Blue
+            { hex: '#a855f7', rgb: '168, 85, 247' }, // Purple
+            { hex: '#f59e0b', rgb: '245, 158, 11' },  // Amber/Orange
+            { hex: '#ec4899', rgb: '236, 72, 153' },  // Pink
+            { hex: '#06b6d4', rgb: '6, 182, 212' },   // Cyan
+            { hex: '#84cc16', rgb: '132, 204, 22' }   // Lime Green
+        ];
+
+        function showAlert(data) {
+            const theme = data.theme || activeConfig.theme || defaultTheme;
+            const sound = data.sound || activeConfig.sound || defaultSound;
+            const customAudio = data.customAudio || activeConfig.customAudio || customAudioParam;
+            const customGif = data.customGif || activeConfig.customGif || customGifParam;
+            const username = data.username || 'New Subscriber';
+            const avatar = data.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(username)}`;
+            const subCount = data.subCount ? `${data.subCount.toLocaleString()} Subscribers` : 'Just Subscribed!';
+            const message = data.message || 'NEW SUBSCRIBER!';
+
+            if (activeConfig.randPos) {
+                const randT = Math.floor(Math.random() * 60) + 15;
+                const randL = Math.floor(Math.random() * 60) + 20;
+                alertContainer.style.top = `${randT}%`;
+                alertContainer.style.left = `${randL}%`;
+            }
+
+            // Apply Auto-Detect HD Scaling
+            autoDetectAndApplyHdScaling();
+
+            // Update live counter with +1 animation
+            if (data.subCount) {
+                animateCounterChange(1, data.subCount);
+            } else {
+                animateCounterChange(1);
+            }
+
+            // Pick color accent (or use custom passed color)
+            let selectedColor = alertColors[Math.floor(Math.random() * alertColors.length)];
+            if (data.color) {
+                const rgb = hexToRgbStr(data.color);
+                selectedColor = { hex: data.color, rgb: rgb };
+            }
+
+            // Determine Media Content (Custom Animated GIF vs Avatar Image)
+            let mediaMarkup = '';
+            if (customGif) {
+                mediaMarkup = `<img class="custom-gif-media" src="${customGif}" style="filter: drop-shadow(0 4px 12px rgba(${selectedColor.rgb}, 0.5));" alt="Custom Animation GIF">`;
+            } else {
+                mediaMarkup = `
+                    <img class="avatar-img" src="${avatar}" style="border-color: ${selectedColor.hex} !important;" alt="Subscriber Avatar" onerror="this.src='https://cdn-icons-png.flaticon.com/512/847/847969.png'">
+                    <div class="badge-icon" style="background: ${selectedColor.hex} !important; border-color: ${selectedColor.hex} !important;">🔴</div>
+                `;
+            }
+
+            // Build Alert Card Markup
+            const card = document.createElement('div');
+            card.className = `alert-card theme-${theme}`;
+            
+            // Dynamically attach --accent-color and --accent-rgb CSS properties to drive glow animation!
+            card.style.setProperty('--accent-color', selectedColor.hex);
+            card.style.setProperty('--accent-rgb', selectedColor.rgb);
+
+            card.style.borderColor = selectedColor.hex;
+            if (theme === 'dropfler') {
+                card.style.boxShadow = `0 0 35px rgba(${selectedColor.rgb}, 0.55), inset 0 0 15px rgba(${selectedColor.rgb}, 0.2)`;
+            } else if (theme === 'neon') {
+                card.style.background = `linear-gradient(135deg, rgba(${selectedColor.rgb}, 0.9), rgba(15, 17, 26, 0.95))`;
+                card.style.boxShadow = `0 0 45px rgba(${selectedColor.rgb}, 0.7)`;
+            } else if (theme === 'sleek') {
+                card.style.borderLeftColor = selectedColor.hex;
+                card.style.boxShadow = `0 10px 40px rgba(0, 0, 0, 0.6), 0 0 15px rgba(${selectedColor.rgb}, 0.2)`;
+            }
+
+            card.innerHTML = `
+                <div class="avatar-box">
+                    ${mediaMarkup}
+                </div>
+                <div class="alert-content">
+                    <div class="alert-tag" style="color: ${selectedColor.hex} !important;">⚡ ${message}</div>
+                    <div class="subscriber-name">${username}</div>
+                    <div class="sub-count-badge">📈 ${subCount}</div>
+                </div>
+            `;
+
+            alertContainer.innerHTML = '';
+            alertContainer.appendChild(card);
+
+            // Play Audio (Custom Uploaded Audio File vs Built-in Audio Synth)
+            if (customAudio) {
+                try {
+                    const audio = new Audio(customAudio);
+                    audio.play().catch(e => console.log('Audio playback error:', e));
+                } catch(e) {
+                    AudioSynth.play(sound);
+                }
+            } else if (sound !== 'silent') {
+                AudioSynth.play(sound);
+            }
+
+            // Guarantee CSS Entrance Animation
+            setTimeout(() => {
+                card.classList.add('active');
+            }, 20);
+
+            // Display Duration (5 seconds)
+            setTimeout(() => {
+                card.classList.remove('active');
+                setTimeout(() => {
+                    alertContainer.innerHTML = '';
+                    isDisplaying = false;
+                    processQueue();
+                }, 600);
+            }, 5000);
+        }
+
+        // Add event to queue
+        function queueAlert(data) {
+            alertQueue.push(data);
+            processQueue();
+        }
+        window.queueAlert = queueAlert;
+
+        // Poll or Listen for New Subscriber Events from Backend API
+        let isInitialFetch = true;
+        let lastEventId = null;
+
+        function fetchEvents() {
+            fetch(`/api/youtube/obs-sub-events?channel=${encodeURIComponent(channelParam)}&since=${lastEventId || ''}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.events && data.events.length > 0) {
+                        if (isInitialFetch) {
+                            // Skip flooding old past events on first page load
+                            lastEventId = data.events[data.events.length - 1].id;
+                            isInitialFetch = false;
+                        } else {
+                            data.events.forEach(evt => {
+                                lastEventId = evt.id;
+                                queueAlert(evt);
+                            });
+                        }
+                    } else {
+                        isInitialFetch = false;
+                    }
+                })
+                .catch(err => {
+                    isInitialFetch = false;
+                });
+        }
+
+        // Poll every 3 seconds for new live stream subscriber events
+        setInterval(fetchEvents, 3000);
+        // ═══ AUTO-DETECT CANVAS RESOLUTION & HD SCALING ENGINE ═══
+        function autoDetectAndApplyHdScaling() {
+            const vWidth = window.innerWidth || document.documentElement.clientWidth || 1920;
+            let autoScale = 1.0;
+            if (vWidth > 2200) {
+                autoScale = 1.5; // 4K / 2K Ultra-HD Scaling
+            } else if (vWidth > 1400) {
+                autoScale = 1.0; // Standard 1080p Full HD
+            } else if (vWidth > 900) {
+                autoScale = 0.9; // 720p HD
+            } else {
+                autoScale = Math.max(0.75, vWidth / 1200);
+            }
+            if (alertContainer) {
+                alertContainer.style.transform = `translate(-50%, -50%) scale(${(activeConfig.scale || 1.0) * autoScale})`;
+            }
+        }
+        window.addEventListener('resize', autoDetectAndApplyHdScaling);
+        autoDetectAndApplyHdScaling();
+    </script>
+</body>
+</html>

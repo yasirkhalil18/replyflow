@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy | ReplyFlow Automation Suite</title>
+    <meta name="description" content="Official Privacy Policy for ReplyFlow Automation Suite - Comprehensive data handling, Discord Developer Policy compliance, YouTube API Services, and Meta API disclosures.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #07080e;
+            --card-bg: rgba(15, 17, 26, 0.85);
+            --border: rgba(255, 255, 255, 0.08);
+            --primary: #5865f2;
+            --primary-glow: rgba(88, 101, 242, 0.4);
+            --accent: #a855f7;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            line-height: 1.6;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(88, 101, 242, 0.12) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(168, 85, 247, 0.12) 0%, transparent 40%);
+            background-attachment: fixed;
+        }
+        .header-nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 8%;
+            border-bottom: 1px solid var(--border);
+            background: rgba(7, 8, 14, 0.8);
+            backdrop-filter: blur(12px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .logo-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: #fff;
+        }
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            box-shadow: 0 4px 16px var(--primary-glow);
+        }
+        .logo-text { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 20px; letter-spacing: -0.5px; }
+        .nav-links { display: flex; gap: 24px; align-items: center; }
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+        .nav-links a:hover, .nav-links a.active { color: #fff; }
+        .btn-dashboard {
+            background: linear-gradient(135deg, var(--primary), #4752c4);
+            color: #fff !important;
+            padding: 8px 18px;
+            border-radius: 10px;
+            font-weight: 700 !important;
+            box-shadow: 0 4px 14px var(--primary-glow);
+        }
+        .container { max-width: 960px; margin: 40px auto; padding: 0 24px; }
+        .hero-banner {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 40px 24px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            backdrop-filter: blur(16px);
+        }
+        .hero-title { font-family: 'Outfit', sans-serif; font-size: 36px; font-weight: 800; margin-bottom: 12px; }
+        .hero-subtitle { color: var(--text-muted); font-size: 15px; }
+        .legal-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 36px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(16px);
+        }
+        .section-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 22px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+        }
+        .section-content { color: #cbd5e1; font-size: 14px; line-height: 1.8; }
+        .section-content p { margin-bottom: 14px; }
+        .section-content ul { padding-left: 20px; margin-bottom: 16px; }
+        .section-content li { margin-bottom: 8px; }
+        .badge-tag {
+            display: inline-block;
+            background: rgba(88, 101, 242, 0.15);
+            color: #818cf8;
+            border: 1px solid rgba(88, 101, 242, 0.3);
+            padding: 3px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            margin-right: 6px;
+        }
+        footer {
+            text-align: center;
+            padding: 40px 24px;
+            border-top: 1px solid var(--border);
+            color: var(--text-muted);
+            font-size: 13px;
+            margin-top: 60px;
+        }
+        .footer-links { display: flex; justify-content: center; gap: 20px; margin-bottom: 16px; }
+        .footer-links a { color: var(--text-muted); text-decoration: none; font-weight: 600; }
+        .footer-links a:hover { color: #fff; }
+    </style>
+</head>
+<body>
+
+    <nav class="header-nav">
+        <a href="index.html" class="logo-group">
+            <div class="logo-icon">⚡</div>
+            <div class="logo-text">ReplyFlow</div>
+        </a>
+        <div class="nav-links">
+            <a href="privacy.html" class="active">Privacy Policy</a>
+            <a href="terms.html">Terms</a>
+            <a href="support.html">Support</a>
+            <a href="contact.html">Contact</a>
+            <a href="index.html" class="btn-dashboard">Open Dashboard</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="hero-banner">
+            <h1 class="hero-title">Official Privacy Policy</h1>
+            <p class="hero-subtitle">Last Updated: <span id="last-updated-date">August 24, 2026</span> • Effective Immediately</p>
+        </div>
+
+        <div class="legal-card">
+            <div class="section-title"><span>1. Introduction & Overview</span></div>
+            <div class="section-content">
+                <p>Welcome to <strong>ReplyFlow Automation Suite</strong> ("ReplyFlow", "we", "us", or "our"). We are committed to protecting your personal information and privacy rights. This Privacy Policy governs your use of our website, Discord Bot services, API integrations, and web dashboard applications across all connected platforms.</p>
+                <p>By connecting your Discord account, authorizing Discord Bot permissions, or using our Web Dashboard, you agree to the collection and use of information in accordance with this policy.</p>
+            </div>
+        </div>
+
+        <div class="legal-card">
+            <div class="section-title"><span>2. Information We Collect</span></div>
+            <div class="section-content">
+                <p>To provide automated community management, live telemetry counters, AI support, and audit logging, we collect the following data types:</p>
+                <ul>
+                    <li><span class="badge-tag">Discord Account Data</span> Discord User ID, Username, Avatar URL, and Guild (Server) Memberships.</li>
+                    <li><span class="badge-tag">Server Telemetry</span> Channel names, member counts, voice state timestamps, and server role hierarchies required for Live Server Stats.</li>
+                    <li><span class="badge-tag">AI RAG & Chat Memory</span> Non-sensitive chat messages sent in designated AI assistance channels (`#ai-assistant`) or ticket channels to generate automated support responses via Google Gemini AI.</li>
+                    <li><span class="badge-tag">Audit Logs & Deletion Archives</span> Temporary text logs of deleted/edited messages, member joins/leaves, and role changes retained strictly for administrator security review in `#audit-logs`.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="legal-card">
+            <div class="section-title"><span>3. Compliance with Platform Developer Policies</span></div>
+            <div class="section-content">
+                <p>ReplyFlow complies strictly with all third-party developer requirements:</p>
+                <ul>
+                    <li><strong>Discord Developer Terms:</strong> Message content and member data are processed strictly in accordance with Discord's Developer Terms of Service and Policy. Privileged intents (Message Content, Server Members, Presences) are used solely for requested features (AutoMod, Leveling, Audit Logs).</li>
+                    <li><strong>Google & YouTube API Services:</strong> When social feed updates are enabled, ReplyFlow accesses public channel metadata using YouTube API Services. We do not store or share private Google user data.</li>
+                    <li><strong>Meta & Instagram APIs:</strong> Social feed alerts only monitor public posts and brand updates authorized by server administrators.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="legal-card">
+            <div class="section-title"><span>4. How We Protect & Store Your Data</span></div>
+            <div class="section-content">
+                <p>Data security is our top priority. All database records (SQLite / MySQL) are encrypted at rest and transmitted using secure TLS 1.3 protocol. Access to database servers is strictly restricted to automated bot service instances.</p>
+                <p>We do <strong>NOT</strong> sell, rent, or trade your personal data or chat logs to any third-party advertisers or data brokers under any circumstances.</p>
+            </div>
+        </div>
+
+        <div class="legal-card">
+            <div class="section-title"><span>5. User Rights & Data Deletion Requests</span></div>
+            <div class="section-content">
+                <p>You retain full control over your data. Under GDPR and CCPA guidelines, you have the right to request access to or complete erasure of your stored records (XP levels, ticket transcripts, and audit logs).</p>
+                <p>To request permanent data deletion, please contact our privacy desk at <a href="contact.html" style="color: #818cf8; text-decoration: underline;">Contact Desk</a> or email our support team directly. Server administrators may also reset or purge server data at any time via the Web Dashboard.</p>
+            </div>
+        </div>
+
+        <div class="legal-card">
+            <div class="section-title"><span>6. Contact & Legal Enquiries</span></div>
+            <div class="section-content">
+                <p>If you have any questions, concerns, or legal inquiries regarding this Privacy Policy or our data practices, please reach out through our official channels:</p>
+                <p>• <strong>Web Contact:</strong> <a href="contact.html" style="color: #818cf8; text-decoration: underline;">https://<span class="dyn-domain">replyflow.io</span>/contact.html</a><br>
+                • <strong>Support Desk:</strong> <a href="support.html" style="color: #818cf8; text-decoration: underline;">https://<span class="dyn-domain">replyflow.io</span>/support.html</a></p>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="footer-links">
+            <a href="privacy.html">Privacy Policy</a>
+            <a href="terms.html">Terms of Service</a>
+            <a href="support.html">Help & Support</a>
+            <a href="contact.html">Contact Us</a>
+            <a href="index.html">Web Dashboard</a>
+        </div>
+        <p>© <span id="copyright-year">2026</span> <span class="dyn-domain-name">ReplyFlow Automation Suite</span>. All Rights Reserved.</p>
+    </footer>
+
+    <script>
+        // Dynamic Inbound Link & Domain Auto-Adaptation Script
+        document.addEventListener('DOMContentLoaded', () => {
+            const currentHost = window.location.hostname || 'khaki-kangaroo-783561.hostingersite.com';
+            document.querySelectorAll('.dyn-domain').forEach(el => el.textContent = currentHost);
+            document.querySelectorAll('.dyn-domain-name').forEach(el => el.textContent = 'ReplyFlow Automation Suite (' + currentHost + ')');
+        });
+    </script>
+</body>
+</html>

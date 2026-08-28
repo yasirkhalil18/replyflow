@@ -1,0 +1,17 @@
+[Unit]
+Description=Discord Automation System 24/7 Independent Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=D:\discord
+ExecStart=C:\Users\brost\AppData\Local\Programs\Python\Python312\python.exe run_system_247.py
+Restart=always
+RestartSec=5
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=discord-automation-bot
+
+[Install]
+WantedBy=multi-user.target
