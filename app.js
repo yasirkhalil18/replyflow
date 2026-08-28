@@ -923,13 +923,13 @@ function initReplyFlowApp() {
       const res = await fetch('/api/discord/guilds/connect', {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ guildId: cleanGuildId, name: name || `Discord Server ${cleanGuildId}` })
+        body: JSON.stringify({ guildId: cleanGuildId })
       });
       const data = await res.json();
       if (data.success) {
         if (typeof closeModal === 'function') closeModal('modal-manage-dc');
         const connectedGuild = (data.guilds || []).find(g => String(g.id) === String(cleanGuildId)) || (data.guilds && data.guilds[0]);
-        const serverName = connectedGuild ? connectedGuild.name : (name || `Discord Server ${cleanGuildId}`);
+        const serverName = connectedGuild ? connectedGuild.name : cleanGuildId;
         
         if (typeof showToast === 'function') showToast(`🎉 Server '${serverName}' connected successfully!`, 'success');
         
@@ -959,28 +959,14 @@ function initReplyFlowApp() {
     const switchSel = document.getElementById('dc-switch-account-select');
     const elAccountName = document.getElementById('dc-connected-account-name');
 
-    // Get name from dropdown option text
-    let selectedName = `Discord Server ${guildId}`;
-    if (switchSel && switchSel.options[switchSel.selectedIndex]) {
-      selectedName = switchSel.options[switchSel.selectedIndex].text
-        .replace(/^\u26a1\s*Connect:\s*/i, '')
-        .replace(/^\ud83d\udfe2\s*Connected:\s*/i, '')
-        .replace(/^\ud83d\udd04\s*Switch:\s*/i, '')
-        .replace(/\s*\(\d+\)$/, '')
-        .trim();
-    }
-
-    // Optimistic UI update first
     localStorage.setItem('selected_discord_guild_id', String(guildId));
-    if (elAccountName) elAccountName.textContent = selectedName;
-    if (typeof showToast === 'function') showToast(`\u23f3 Switching to ${selectedName}...`, 'info');
+    if (typeof showToast === 'function') showToast(`⌛ Switching server...`, 'info');
 
-    // ✅ ALWAYS persist to server via API call
     try {
       const res = await fetch('/api/discord/guilds/connect', {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ guildId, name: selectedName })
+        body: JSON.stringify({ guildId })
       });
       const data = await res.json();
       if (data.success) {
@@ -1081,7 +1067,7 @@ function initReplyFlowApp() {
       const res = await fetch('/api/discord/guilds/connect', {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ guildId, name: `Discord Server ${guildId}` })
+        body: JSON.stringify({ guildId })
       });
       const data = await res.json();
       if (data.success) {
