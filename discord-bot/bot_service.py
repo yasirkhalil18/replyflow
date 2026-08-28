@@ -584,6 +584,11 @@ class TicketView(ui.View):
 
     @ui.button(label="📩 Create Ticket", style=discord.ButtonStyle.primary, custom_id="create_ticket_btn")
     async def create_ticket(self, interaction: discord.Interaction, button: ui.Button):
+        try:
+            if not interaction.response.is_done():
+                await interaction.response.defer(ephemeral=True)
+        except Exception:
+            pass
         await create_instant_ticket(interaction, "General Support")
 
 
