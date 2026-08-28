@@ -845,7 +845,12 @@ async def update_live_stats(guild: discord.Guild, force: bool = False):
     for key, spec in specs.items():
         if spec['enabled'] and not spec.get('processed'):
             try:
-                await guild.create_voice_channel(spec['name'], category=stats_cat, overwrites=overwrites)
+                vc_overwrites = {
+                    guild.default_role: discord.PermissionOverwrite(connect=False, view_channel=True)
+                }
+                if bot_member:
+                    vc_overwrites[bot_member] = discord.PermissionOverwrite(connect=True, view_channel=True, manage_channels=True)
+                await guild.create_voice_channel(spec['name'], category=stats_cat, overwrites=vc_overwrites)
                 print(f"[LiveStats] ✨ Created voice channel counter: '{spec['name']}' in '{guild.name}'")
             except Exception as create_err:
                 print(f"[LiveStats] Missing channel creation error: {create_err}")
