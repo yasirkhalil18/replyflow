@@ -694,13 +694,24 @@ async def update_live_stats(guild: discord.Guild, force: bool = False):
     except Exception as e:
         print("Database config load error for live-stats:", e)
 
+    def parse_bool(val, default=True):
+        if val is None:
+            return default
+        if isinstance(val, bool):
+            return val
+        if isinstance(val, (int, float)):
+            return bool(val)
+        if isinstance(val, str):
+            return val.lower() not in ['false', '0', 'off', 'none', 'null', '']
+        return bool(val)
+
     # Read ON/OFF Toggles saved from Website Dashboard
-    show_members = cfg.get('total_members', True)
-    show_online = cfg.get('online_members', True)
-    show_boosts = cfg.get('server_boosts', True)
-    show_admins = cfg.get('admin_count', True)
-    show_bots = cfg.get('bot_count', True)
-    show_mods = cfg.get('mod_count', True)
+    show_members = parse_bool(cfg.get('total_members'), True)
+    show_online = parse_bool(cfg.get('online_members'), True)
+    show_boosts = parse_bool(cfg.get('server_boosts'), True)
+    show_admins = parse_bool(cfg.get('admin_count'), True)
+    show_bots = parse_bool(cfg.get('bot_count'), True)
+    show_mods = parse_bool(cfg.get('mod_count'), True)
 
     all_stats_cats = [c for c in guild.categories if 'SERVER STATS' in c.name.upper()]
     stats_cat = None
@@ -732,12 +743,12 @@ async def update_live_stats(guild: discord.Guild, force: bool = False):
     mod_count = sum(1 for m in guild.members if any(r.name.lower() in ['mod', 'moderator', 'staff'] for r in m.roles)) or 1
 
     specs = {
-        'members': {'name': f"👥 Total Members: {member_count:,}", 'enabled': show_members, 'keywords': ['total members', '👥']},
-        'online': {'name': f"🟢 Online Members: {online_count:,}", 'enabled': show_online, 'keywords': ['online members', '🟢']},
-        'boosts': {'name': f"🚀 Server Boosts: {boost_count}", 'enabled': show_boosts, 'keywords': ['boost', '🚀']},
-        'admins': {'name': f"🛡️ Admins: {admin_count:,}", 'enabled': show_admins, 'keywords': ['admin', '🛡️']},
-        'bots': {'name': f"🤖 Server Bots: {bot_count:,}", 'enabled': show_bots, 'keywords': ['bot', '🤖']},
-        'mods': {'name': f"⚔️ Moderators: {mod_count:,}", 'enabled': show_mods, 'keywords': ['mod', 'moderator', 'staff', '⚔️']}
+        'members': {'name': f"👥 Total Members: {member_count:,}", 'enabled': show_members, 'keywords': ['total members', 'members', '👥']},
+        'online': {'name': f"🟢 Online Members: {online_count:,}", 'enabled': show_online, 'keywords': ['online members', 'online', '🟢']},
+        'boosts': {'name': f"🚀 Server Boosts: {boost_count}", 'enabled': show_boosts, 'keywords': ['server boosts', 'boost', '🚀']},
+        'admins': {'name': f"🛡️ Admins: {admin_count:,}", 'enabled': show_admins, 'keywords': ['admin', 'admins', '🛡️']},
+        'bots': {'name': f"🤖 Server Bots: {bot_count:,}", 'enabled': show_bots, 'keywords': ['server bots', 'bots', '🤖']},
+        'mods': {'name': f"⚔️ Moderators: {mod_count:,}", 'enabled': show_mods, 'keywords': ['moderator', 'moderators', 'mods', '⚔️']}
     }
 
     overwrites = {
