@@ -8444,10 +8444,27 @@ const DISCORD_BOT_TOKEN_GLOBAL = process.env.DISCORD_BOT_TOKEN || '';
 async function fetchDiscordGuildInfo(guildId) {
   if (!guildId || guildId === 'auto' || guildId === 'unknown') return null;
   try {
+    if (discordClient && discordClient.isReady()) {
+      const liveG = discordClient.guilds.cache.get(String(guildId));
+      if (liveG) {
+        return {
+          id: String(liveG.id),
+          name: liveG.name,
+          tier: 'Free Tier',
+          status: 'online',
+          icon: liveG.iconURL ? liveG.iconURL() : null,
+          connectedAt: new Date().toISOString()
+        };
+      }
+    }
+
+    const token = process.env.DISCORD_BOT_TOKEN || '';
+    if (!token) return null;
+
     const fetchMod = globalThis.fetch || require('node-fetch');
     const res = await fetchMod(`https://discord.com/api/v10/guilds/${guildId}`, {
       headers: {
-        'Authorization': `Bot ${DISCORD_BOT_TOKEN_GLOBAL}`,
+        'Authorization': `Bot ${token}`,
         'User-Agent': 'DiscordBot (https://github.com/discord, v1.0.0)'
       }
     });
@@ -8684,6 +8701,17 @@ app.post('/api/discord/guilds/connect', requireUserAuth, async (req, res) => {
   disconnectedGuildsMap[uid] = [];
 
   saveDatabaseToDisk();
+
+  // Instant 0ms auto-provisioning of all 8 plugin channels on Discord
+  if (discordClient && discordClient.isReady()) {
+    try {
+      const liveG = discordClient.guilds.cache.get(String(guildData.id));
+      if (liveG) {
+        ensureAllPluginChannels(liveG);
+      }
+    } catch (e) {}
+  }
+
   res.json({ success: true, message: 'Discord server connected successfully!', guilds: discordGuildsStore[uid] });
 });
 
