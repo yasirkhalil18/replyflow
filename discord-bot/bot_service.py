@@ -1670,12 +1670,20 @@ async def ensure_permanent_ticket_channel(guild: discord.Guild):
             if msg.author == guild.me and msg.embeds:
                 for emb in msg.embeds:
                     if emb.title and "Ticket" in emb.title:
-                        has_panel = True
-                        try:
-                            await msg.edit(view=TicketView())
-                            print(f"[TicketSystem] Refreshed TicketView on #{ticket_chan.name}")
-                        except Exception as edit_err:
-                            print("[TicketSystem] Refresh TicketView error:", edit_err)
+                        msg_age = (discord.utils.utcnow() - msg.created_at).total_seconds()
+                        if msg_age > 21600: # 6 hours stale check
+                            try:
+                                await msg.delete()
+                                print(f"[TicketSystem] Deleted stale ticket panel message (age: {int(msg_age)}s)")
+                            except Exception:
+                                pass
+                        else:
+                            has_panel = True
+                            try:
+                                await msg.edit(view=TicketView())
+                                print(f"[TicketSystem] Refreshed TicketView on #{ticket_chan.name}")
+                            except Exception as edit_err:
+                                print("[TicketSystem] Refresh TicketView error:", edit_err)
                         break
             if has_panel:
                 break
@@ -2013,6 +2021,17 @@ async def ensure_all_plugin_sidebar_channels(guild: discord.Guild):
     except Exception as e:
         print("[SidebarChannels] Error ensuring all plugin channels:", e)
 
+async def auto_channel_provision_loop():
+    """Background loop running every 10s: Auto-detects missing plugin channels/categories and provisions them in real-time."""
+    await client.wait_until_ready()
+    while not client.is_closed():
+        try:
+            for g in client.guilds:
+                await ensure_all_plugin_sidebar_channels(g)
+        except Exception as e:
+            print("[ProvisionLoop Note]:", e)
+        await asyncio.sleep(10)
+
 @client.event
 async def on_ready():
     database.init_db()
@@ -2024,9 +2043,10 @@ async def on_ready():
     print(f"  Automation Bot Online & Listening as {client.user}!")
     print(f"  Connected Guilds Count: {len(client.guilds)}")
     
-    # Start real-time 3-second live stats channel sync loop
+    # Start real-time 3-second live stats channel sync loop & 10s auto-provision loop
     client.loop.create_task(live_stats_sync_loop())
     client.loop.create_task(social_feed_sync_loop())
+    client.loop.create_task(auto_channel_provision_loop())
 
     for g in client.guilds:
         print(f"   - {g.name} (ID: {g.id}) | Members: {g.member_count}")
