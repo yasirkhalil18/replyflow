@@ -32,11 +32,29 @@ import database
 
 import dotenv
 
-env_path = os.path.join(os.path.dirname(__file__), 'backend', '.env')
-dotenv.load_dotenv(env_path)
+root_env = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+backend_env = os.path.join(os.path.dirname(__file__), 'backend', '.env')
+if os.path.exists(root_env):
+    dotenv.load_dotenv(root_env)
+if os.path.exists(backend_env):
+    dotenv.load_dotenv(backend_env)
 
-TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "")
-CLIENT_ID = int(os.environ.get("DISCORD_CLIENT_ID", "1542781631067201606"))
+TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "").strip()
+if not TOKEN:
+    for p in [root_env, backend_env, os.path.expanduser('~/replyflow/.env')]:
+        if os.path.exists(p):
+            try:
+                with open(p, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        if line.startswith('DISCORD_BOT_TOKEN='):
+                            TOKEN = line.split('=', 1)[1].strip().strip('"').strip("'")
+                            break
+            except Exception:
+                pass
+        if TOKEN:
+            break
+
+CLIENT_ID = int(os.environ.get("DISCORD_CLIENT_ID") or "1542781631067201606")
 
 intents = discord.Intents.all()
 
