@@ -241,7 +241,7 @@ def increment_telemetry(guild_id: str, field: str, amount: int = 1):
     conn.close()
 
 def get_plugin_config(guild_id: str, plugin_key: str):
-    import json
+    import json, os
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT enabled, config_json FROM plugin_configs WHERE guild_id = ? AND plugin_key = ?", (guild_id, plugin_key))
@@ -252,6 +252,22 @@ def get_plugin_config(guild_id: str, plugin_key: str):
             return {"enabled": bool(row["enabled"]), "config": json.loads(row["config_json"])}
         except Exception:
             return {"enabled": bool(row["enabled"]), "config": {}}
+    
+    # Fallback to database.json if SQLite doesn't have it
+    try:
+        json_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'database.json')
+        if os.path.exists(json_path):
+            with open(json_path, 'r', encoding='utf-8') as f:
+                db_data = json.load(f)
+                configs = db_data.get('pluginConfigs', {})
+                key_g = f"{guild_id}_{plugin_key}"
+                if key_g in configs:
+                    return configs[key_g]
+                elif plugin_key in configs:
+                    return configs[plugin_key]
+    except Exception:
+        pass
+
     return {"enabled": True, "config": {}}
 
 def get_all_plugin_configs(guild_id: str):

@@ -8945,8 +8945,9 @@ app.post('/api/plugins/save', requireUserAuth, async (req, res) => {
     const { execFile } = require('child_process');
     const configStr = JSON.stringify(config);
     const pyCmd = `import sys, os, json; sys.path.append(os.path.join(r'${__dirname.replace(/\\/g, '/')}', 'discord-bot')); import database; database.save_plugin_config('${guild_id}', '${plugin_key}', ${enabled ? 'True' : 'False'}, json.loads(sys.argv[1]))`;
+    const pyBin = process.platform === 'win32' ? 'python' : 'python3';
     
-    execFile('python', ['-c', pyCmd, configStr], { cwd: __dirname }, (err) => {
+    execFile(pyBin, ['-c', pyCmd, configStr], { cwd: __dirname }, (err) => {
       if (err) console.error("[NodeServer] SQLite plugin save sync note:", err.message);
       else console.log(`[NodeServer] Plugin '${plugin_key}' for guild ${guild_id} synced to SQLite DB successfully.`);
     });
