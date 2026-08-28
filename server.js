@@ -8518,19 +8518,33 @@ async function getUserGuilds(userId) {
   let userStoredGuilds = (discordGuildsStore[uid] && Array.isArray(discordGuildsStore[uid])) ? discordGuildsStore[uid] : [];
   
   if (discordClient && discordClient.isReady()) {
-    userStoredGuilds = userStoredGuilds.map(g => {
-      if (g && g.id) {
-        const liveG = discordClient.guilds.cache.get(String(g.id));
-        if (liveG) {
+    const liveGuilds = Array.from(discordClient.guilds.cache.values());
+    if (liveGuilds.length > 0) {
+      const validStored = userStoredGuilds.filter(g => g && g.id && discordClient.guilds.cache.has(String(g.id)));
+      
+      if (validStored.length > 0) {
+        userStoredGuilds = validStored.map(g => {
+          const liveG = discordClient.guilds.cache.get(String(g.id));
           return {
             ...g,
             name: liveG.name,
-            icon: liveG.iconURL ? liveG.iconURL() : g.icon
+            icon: liveG.iconURL ? liveG.iconURL() : g.icon,
+            status: 'online'
           };
-        }
+        });
+      } else {
+        userStoredGuilds = liveGuilds.map(liveG => ({
+          id: String(liveG.id),
+          name: liveG.name,
+          tier: 'Free Tier',
+          status: 'online',
+          icon: liveG.iconURL ? liveG.iconURL() : null,
+          connectedAt: new Date().toISOString()
+        }));
+        discordGuildsStore[uid] = userStoredGuilds;
+        saveDiscordGuildsStore();
       }
-      return g;
-    });
+    }
   }
   return userStoredGuilds;
 }
