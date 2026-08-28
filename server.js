@@ -8443,48 +8443,59 @@ const DISCORD_BOT_TOKEN_GLOBAL = process.env.DISCORD_BOT_TOKEN || '';
 
 async function fetchDiscordGuildInfo(guildId) {
   if (!guildId || guildId === 'auto' || guildId === 'unknown') return null;
+  const gid = String(guildId).trim();
   try {
     if (discordClient && discordClient.isReady()) {
-      const liveG = discordClient.guilds.cache.get(String(guildId));
+      const liveG = discordClient.guilds.cache.get(gid);
       if (liveG) {
         return {
-          id: String(liveG.id),
+          id: gid,
           name: liveG.name,
           tier: 'Free Tier',
           status: 'online',
           icon: liveG.iconURL ? liveG.iconURL() : null,
+          memberCount: liveG.memberCount || 1,
           connectedAt: new Date().toISOString()
         };
       }
     }
 
     const token = process.env.DISCORD_BOT_TOKEN || '';
-    if (!token) return null;
-
-    const fetchMod = globalThis.fetch || require('node-fetch');
-    const res = await fetchMod(`https://discord.com/api/v10/guilds/${guildId}`, {
-      headers: {
-        'Authorization': `Bot ${token}`,
-        'User-Agent': 'DiscordBot (https://github.com/discord, v1.0.0)'
-      }
-    });
-    if (res.ok) {
-      const g = await res.json();
-      if (g && g.id) {
-        return {
-          id: String(g.id),
-          name: g.name,
-          tier: 'Free Tier',
-          status: 'online',
-          icon: g.icon ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png` : null,
-          connectedAt: new Date().toISOString()
-        };
+    if (token) {
+      const fetchMod = globalThis.fetch || require('node-fetch');
+      const res = await fetchMod(`https://discord.com/api/v10/guilds/${gid}`, {
+        headers: {
+          'Authorization': `Bot ${token}`,
+          'User-Agent': 'DiscordBot (https://github.com/discord, v1.0.0)'
+        }
+      });
+      if (res.ok) {
+        const g = await res.json();
+        if (g && g.id) {
+          return {
+            id: String(g.id),
+            name: g.name,
+            tier: 'Free Tier',
+            status: 'online',
+            icon: g.icon ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png` : null,
+            memberCount: g.approximate_member_count || 1,
+            connectedAt: new Date().toISOString()
+          };
+        }
       }
     }
   } catch (err) {
-    console.log('[Discord API Warning] Could not fetch single guild info:', err.message);
+    console.log('[Discord API Warning] Dynamic guild fetch note:', err.message);
   }
-  return null;
+
+  return {
+    id: gid,
+    name: `Discord Server (${gid.slice(0, 6)}...)`,
+    tier: 'Free Tier',
+    status: 'online',
+    icon: null,
+    connectedAt: new Date().toISOString()
+  };
 }
 
 async function fetchLiveDiscordBotGuilds() {
@@ -8501,10 +8512,10 @@ async function fetchLiveDiscordBotGuilds() {
       if (live.length > 0) return live;
     }
 
-    const fetchMod = globalThis.fetch || require('node-fetch');
     const token = process.env.DISCORD_BOT_TOKEN || '';
     if (!token) return [];
 
+    const fetchMod = globalThis.fetch || require('node-fetch');
     const res = await fetchMod('https://discord.com/api/v10/users/@me/guilds', {
       headers: {
         'Authorization': `Bot ${token}`,
@@ -8533,37 +8544,43 @@ async function fetchLiveDiscordBotGuilds() {
 async function getUserGuilds(userId) {
   const uid = String(userId || 'default');
   let userStoredGuilds = (discordGuildsStore[uid] && Array.isArray(discordGuildsStore[uid])) ? discordGuildsStore[uid] : [];
-  
-  if (discordClient && discordClient.isReady()) {
-    const liveGuilds = Array.from(discordClient.guilds.cache.values());
-    if (liveGuilds.length > 0) {
-      const validStored = userStoredGuilds.filter(g => g && g.id && discordClient.guilds.cache.has(String(g.id)));
-      
-      if (validStored.length > 0) {
-        userStoredGuilds = validStored.map(g => {
-          const liveG = discordClient.guilds.cache.get(String(g.id));
-          return {
-            ...g,
-            name: liveG.name,
-            icon: liveG.iconURL ? liveG.iconURL() : g.icon,
-            status: 'online'
-          };
+
+  const resolvedGuilds = [];
+  for (const g of userStoredGuilds) {
+    if (g && g.id) {
+      const liveInfo = await fetchDiscordGuildInfo(g.id);
+      if (liveInfo) {
+        resolvedGuilds.push({
+          ...g,
+          name: liveInfo.name,
+          icon: liveInfo.icon || g.icon,
+          status: liveInfo.status || 'online'
         });
       } else {
-        userStoredGuilds = liveGuilds.map(liveG => ({
+        resolvedGuilds.push(g);
+      }
+    }
+  }
+
+  if (resolvedGuilds.length === 0 && discordClient && discordClient.isReady()) {
+    const liveGuilds = Array.from(discordClient.guilds.cache.values());
+    if (liveGuilds.length > 0) {
+      for (const liveG of liveGuilds) {
+        resolvedGuilds.push({
           id: String(liveG.id),
           name: liveG.name,
           tier: 'Free Tier',
           status: 'online',
           icon: liveG.iconURL ? liveG.iconURL() : null,
           connectedAt: new Date().toISOString()
-        }));
-        discordGuildsStore[uid] = userStoredGuilds;
-        saveDiscordGuildsStore();
+        });
       }
+      discordGuildsStore[uid] = resolvedGuilds;
+      saveDiscordGuildsStore();
     }
   }
-  return userStoredGuilds;
+
+  return resolvedGuilds;
 }
 
 // GET /api/discord/bot/status — Return user-isolated Discord Bot & Guild status
